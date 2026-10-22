@@ -17,12 +17,17 @@ function Dashboard.Configure(menu)
 
     local preview = menu.CreateSection(home.Right, "Control preview")
     local previewStatus = menu.AddInfo(preview, "Demo setting", "Off")
+    local previewValue = previewStatus:FindFirstChild("Value")
     menu.AddToggle(preview, "Preview toggle", false, function(enabled)
-        previewStatus.Value.Text = enabled and "On" or "Off"
-        previewStatus.Value.TextColor3 = enabled and menu.Context.Theme.Accent or menu.Context.Theme.TextWhite
+        if previewValue then
+            previewValue.Text = enabled and "On" or "Off"
+            previewValue.TextColor3 = enabled and menu.Context.Theme.Accent or menu.Context.Theme.TextWhite
+        end
     end)
     menu.AddSlider(preview, "Preview slider", 0, 100, 65, function(value)
-        previewStatus.Value.Text = tostring(value) .. "%"
+        if previewValue then
+            previewValue.Text = tostring(value) .. "%"
+        end
     end)
 
     local keys = menu.CreateSection(home.Right, "Controls")

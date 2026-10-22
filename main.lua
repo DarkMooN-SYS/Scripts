@@ -453,7 +453,7 @@ function Window.new(options)
     close.Size = UDim2.fromOffset(25, 25)
     close.BackgroundColor3 = Theme.CardBg
     close.Font = Enum.Font.GothamBold
-    close.Text = "×"
+    close.Text = "X"
     close.TextColor3 = Theme.CloseRed
     close.Parent = controls
     Instance.new("UICorner", close).CornerRadius = UDim.new(0, 7)
@@ -867,12 +867,17 @@ function Dashboard.Configure(menu)
 
     local preview = menu.CreateSection(home.Right, "Control preview")
     local previewStatus = menu.AddInfo(preview, "Demo setting", "Off")
+    local previewValue = previewStatus:FindFirstChild("Value")
     menu.AddToggle(preview, "Preview toggle", false, function(enabled)
-        previewStatus.Value.Text = enabled and "On" or "Off"
-        previewStatus.Value.TextColor3 = enabled and menu.Context.Theme.Accent or menu.Context.Theme.TextWhite
+        if previewValue then
+            previewValue.Text = enabled and "On" or "Off"
+            previewValue.TextColor3 = enabled and menu.Context.Theme.Accent or menu.Context.Theme.TextWhite
+        end
     end)
     menu.AddSlider(preview, "Preview slider", 0, 100, 65, function(value)
-        previewStatus.Value.Text = tostring(value) .. "%"
+        if previewValue then
+            previewValue.Text = tostring(value) .. "%"
+        end
     end)
 
     local keys = menu.CreateSection(home.Right, "Controls")
@@ -1180,7 +1185,8 @@ function Game.Configure(menu)
     end
     local function AddLabel(parent, text, color)
         local row = menu.AddInfo(parent, text, "")
-        if color and row and row.Value then row.Value.TextColor3 = color end
+        local val = row and row:FindFirstChild("Value")
+        if color and val then val.TextColor3 = color end
         return row
     end
     local function DestroyUI()
@@ -1813,7 +1819,7 @@ task.spawn(function()
                         closeShutter()
                         autoShutterClosedIt = true
                         Notify("🚨 AUTO SHUTTER", "Anomaly at window! Teleported & Shutter closed!", 3)
-
+                        
                         task.delay(5, function() shutterCooldown = false end)
                     end
                 else
@@ -1985,6 +1991,7 @@ table.insert(activeConnections, RunService.RenderStepped:Connect(function()
         end
     end
 end))
+-- end of speed and jump loop connection))
 
 local infJumpActive = false
 AddToggle(MoveCol, "Infinite Jump", false, function(v)
@@ -2167,12 +2174,1034 @@ end
 return Game
 end)()
 
+local GameConfigWW2 = (function()
+return {
+    PlaceId = 14422394494,
+    Name = "Conquer The World WW2",
+}
+end)()
+
+local GameFeaturesWW2 = (function()
+local Game = {}
+
+function Game.Configure(menu)
+    if game.PlaceId ~= GameConfigWW2.PlaceId then
+        return false
+    end
+
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+    local HttpService = game:GetService("HttpService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local LocalPlayer = Players.LocalPlayer
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+    local activeConnections = {}
+    local cleanupCallbacks = {}
+    local isDestroyed = false
+
+    local function Notify(title, message, duration)
+        if menu.Notify then menu.Notify(title, message, duration) end
+    end
+
+    local function CreateTab(name, icon, desc)
+        return menu.CreateTab(name, icon, desc or "WW2 Strategy Automation")
+    end
+    local function CreateSection(parent, title)
+        return menu.CreateSection(parent, title)
+    end
+    local function AddToggle(parent, label, default, callback)
+        return menu.AddToggle(parent, label, default, menu.Debug.Wrap(label, callback))
+    end
+    local function AddSlider(parent, label, minimum, maximum, default, callback)
+        return menu.AddSlider(parent, label, minimum, maximum, default, menu.Debug.Wrap(label, callback))
+    end
+    local function AddButton(parent, label, callback)
+        return menu.AddButton(parent, label, menu.Debug.Wrap(label, callback))
+    end
+    local function AddLabel(parent, text, color)
+        local row = menu.AddInfo(parent, text, "")
+        local val = row and row:FindFirstChild("Value")
+        if color and val then val.TextColor3 = color end
+        return row
+    end
+
+    menu.AddCleanup(function()
+        isDestroyed = true
+        for _, callback in ipairs(cleanupCallbacks) do pcall(callback) end
+        for _, connection in ipairs(activeConnections) do
+            pcall(function() connection:Disconnect() end)
+        end
+        table.clear(activeConnections)
+    end)
+
+    -- ================================================================
+    -- GAME REMOTES & MODULES (Conquer The World WW2)
+    -- ================================================================
+    local CitiesFolder      = ReplicatedStorage:WaitForChild("Cities", 5)
+    local PurchaseFactory   = CitiesFolder and CitiesFolder:WaitForChild("PurchaseFactory", 5)
+    local PurchaseDefense   = CitiesFolder and CitiesFolder:WaitForChild("PurchaseDefense", 5)
+
+    local ResearchFolder    = ReplicatedStorage:WaitForChild("Research", 5)
+    local StartResearch     = ResearchFolder and ResearchFolder:WaitForChild("StartResearch", 5)
+    local TryPurchaseTech   = ResearchFolder and ResearchFolder:WaitForChild("TryPurchaseTech", 5)
+
+    local ArmyFolder        = ReplicatedStorage:WaitForChild("Army", 5)
+    local TryIncreaseTarget = ArmyFolder and ArmyFolder:WaitForChild("TryIncreaseTarget", 5)
+    local TryBuyManpower    = ArmyFolder and ArmyFolder:WaitForChild("TryBuyManpower", 5)
+    local SetPriorityCity   = ArmyFolder and ArmyFolder:WaitForChild("SetPriorityCity", 5)
+
+    local DiplomacyFolder   = ReplicatedStorage:WaitForChild("Diplomacy", 5)
+    local AllianceCallToWar = DiplomacyFolder and DiplomacyFolder:WaitForChild("AllianceCallToWar", 5)
+
+    local GovFolder         = ReplicatedStorage:WaitForChild("Government", 5)
+    local TryStartFocus     = GovFolder and GovFolder:WaitForChild("TryStartFocus", 5)
+    local TryFormCountry    = GovFolder and GovFolder:WaitForChild("TryFormCountry", 5)
+
+    local PlayerRemotes     = ReplicatedStorage:WaitForChild("Player", 5)
+    local CountrySelected   = PlayerRemotes and PlayerRemotes:WaitForChild("CountrySelected", 5)
+
+    local ResearchCommon = nil
+    pcall(function()
+        local common = ReplicatedStorage:WaitForChild("Common", 5)
+        local resMod = common and common:WaitForChild("ResearchCommon", 5)
+        if resMod and resMod:IsA("ModuleScript") then
+            ResearchCommon = require(resMod)
+        end
+    end)
+
+    -- ================================================================
+    -- STATE & SETTINGS (SMART V2 + WAR & GOVERNMENT AI)
+    -- ================================================================
+    local smartMasterActive       = false
+    local autoFactoryActive       = false
+    local autoDefenseActive       = false
+    local autoResearchActive      = false
+    local autoGovFocusActive      = true   -- Auto research Government Focuses
+    local autoWarDefenseActive    = true   -- Auto respond to War / Enemies
+    local autoCallAlliesActive    = true   -- Auto call allies when attacked
+    local autoInfantryActive      = false
+    local autoTanksActive         = false
+    local autoAntiTankActive      = false
+    local autoManpowerActive      = false
+    local autoSelectCountry       = false
+    local autoFormEmpireActive    = false
+    local smartPriorityCity       = true
+
+    local techFocusProfile        = "Industrial" -- "Industrial", "Military", "Balanced"
+    local reserveCash             = 3000         -- Lowered from $25k so upgrades run smoothly!
+    local targetCountryName       = "Spain"
+    local minManpowerThreshold    = 5000
+    local isCurrentlyAtWar        = false
+    local currentActiveFocusName  = "None"
+    local currentPPDisplay        = 0           -- Tracked for UI display
+
+    -- Focus priority strategy: "smart" picks from preferred list, "cheapest" picks lowest PP cost first,
+    -- "chain" follows prerequisite chains to unlock deep focuses ASAP
+    local focusStrategy           = "smart"     -- "smart", "cheapest", "chain"
+
+    -- User can pin a specific focus name to prioritize above everything else
+    local pinnedFocusName         = nil          -- Set via UI button
+
+    -- ================================================================
+    -- HELPER FUNCTIONS
+    -- ================================================================
+    local function GetMyCountry()
+        local countryVal = LocalPlayer:FindFirstChild("Country")
+        if countryVal and countryVal:IsA("ObjectValue") and countryVal.Value then
+            return countryVal.Value
+        end
+        local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+        local countryStat = leaderstats and leaderstats:FindFirstChild("Country")
+        if countryStat and countryStat.Value ~= "" and countryStat.Value ~= "None" then
+            local repCountries = ReplicatedStorage:FindFirstChild("Countries")
+            if repCountries then
+                return repCountries:FindFirstChild(countryStat.Value)
+            end
+        end
+        return nil
+    end
+
+    local function GetEffectiveReserveCash()
+        if isCurrentlyAtWar then
+            return 500 -- In war, spend almost everything to defend!
+        end
+        return reserveCash
+    end
+
+    local function GetCountryMoney(country)
+        return country and country:GetAttribute("money") or 0
+    end
+
+    local function GetCountryManpower(country)
+        return country and country:GetAttribute("manpower") or 0
+    end
+
+    local function GetCountryPP(country)
+        return country and country:GetAttribute("politicalPower") or 0
+    end
+
+    local function GetConstructionQueueCount(city, queueAttr, startAttr)
+        local count = city:GetAttribute(queueAttr)
+        if type(count) == "number" then
+            return math.max(0, math.floor(count))
+        end
+        if city:GetAttribute(startAttr) then
+            return 1
+        end
+        return 0
+    end
+
+    local function IsTechPrerequisitesMet(country, tech)
+        if not ResearchCommon or not ResearchCommon.techs then
+            return true
+        end
+        local techData = ResearchCommon.techs[tech.Name]
+        if not techData or not techData.required then
+            return true
+        end
+        local countryTechs = country:FindFirstChild("Techs")
+        if not countryTechs then return false end
+        for _, reqName in ipairs(techData.required) do
+            local reqTech = countryTechs:FindFirstChild(reqName)
+            if not reqTech or (reqTech:GetAttribute("progress") or 0) < 1 then
+                return false
+            end
+        end
+        return true
+    end
+
+    -- ================================================================
+    -- 1. âš”ï¸ WAR & ENEMY DEFENSE ENGINE
+    -- ================================================================
+    local lastAllyCallTime = 0
+
+    local function RunSmartWarResponse()
+        local country = GetMyCountry()
+        if not country then return end
+
+        local diplo = country:FindFirstChild("Diplomacy")
+        local enemiesFolder = diplo and diplo:FindFirstChild("Enemies")
+        local enemies = enemiesFolder and enemiesFolder:GetChildren() or {}
+
+        if #enemies > 0 then
+            if not isCurrentlyAtWar then
+                isCurrentlyAtWar = true
+                Notify("ðŸš¨ WAR DETECTED!", "At war with " .. enemies[1].Name .. "! War Mobilization Activated!", 4)
+            end
+
+            -- 1. Auto Call Allies to War
+            if autoCallAlliesActive and AllianceCallToWar and (tick() - lastAllyCallTime > 15) then
+                lastAllyCallTime = tick()
+                for _, enemy in ipairs(enemies) do
+                    local enemyCountry = ReplicatedStorage.Countries:FindFirstChild(enemy.Name)
+                    if enemyCountry then
+                        pcall(function()
+                            AllianceCallToWar:FireServer(enemyCountry)
+                        end)
+                    end
+                end
+            end
+
+            -- 2. Emergency Wartime Mobilization: Recruit Troops Immediately
+            local money = GetCountryMoney(country)
+            local manpower = GetCountryManpower(country)
+            local armyFolder = country:FindFirstChild("Army")
+            local classes = armyFolder and armyFolder:FindFirstChild("Classes")
+
+            if classes and TryIncreaseTarget and money > 500 and manpower > 1000 then
+                local inf = classes:FindFirstChild("Infantry")
+                if inf then pcall(function() TryIncreaseTarget:InvokeServer(inf) end) end
+
+                if money > 3000 then
+                    local tanks = classes:FindFirstChild("Tanks")
+                    if tanks then pcall(function() TryIncreaseTarget:InvokeServer(tanks) end) end
+                    local at = classes:FindFirstChild("AntiTank")
+                    if at then pcall(function() TryIncreaseTarget:InvokeServer(at) end) end
+                end
+            end
+
+            -- 3. Emergency Manpower Buy if under 10k
+            if TryBuyManpower and manpower < 10000 and money > 15000 then
+                pcall(function() TryBuyManpower:InvokeServer() end)
+            end
+        else
+            isCurrentlyAtWar = false
+        end
+    end
+
+    -- ================================================================
+    -- 2. ðŸ›ï¸ SMART GOVERNMENT FOCUS UPGRADES (Enhanced V3)
+    -- ================================================================
+
+    -- Build the prerequisite chain needed to unlock a target focus
+    -- Returns an ordered list of focuses to complete (from leaf to target)
+    local function BuildFocusChain(focFolder, targetName)
+        local chain = {}
+        local visited = {}
+
+        local function walk(name)
+            if visited[name] then return true end
+            visited[name] = true
+            local foc = focFolder:FindFirstChild(name)
+            if not foc then return false end
+            -- Already completed
+            if (foc:GetAttribute("progress") or 0) >= 1 then return true end
+
+            local reqStr = foc:GetAttribute("required") or "[]"
+            local reqs = {}
+            pcall(function() reqs = HttpService:JSONDecode(reqStr) end)
+
+            for _, reqName in ipairs(reqs) do
+                if not walk(reqName) then return false end
+            end
+
+            table.insert(chain, foc)
+            return true
+        end
+
+        walk(targetName)
+        return chain
+    end
+
+    -- Score a focus candidate based on strategy and context
+    local function ScoreFocus(focus, preferredNames, country)
+        local score = 0
+        local name = focus.Name
+        local cost = focus:GetAttribute("ppCost") or 0
+
+        -- Pinned focus gets highest priority
+        if pinnedFocusName and name == pinnedFocusName then
+            return 100000
+        end
+
+        if focusStrategy == "cheapest" then
+            -- Lower cost = higher score (invert)
+            score = 10000 - cost
+        elseif focusStrategy == "chain" then
+            -- Prefer focuses that unlock the most subsequent focuses
+            local focFolder = focus.Parent
+            local unlockCount = 0
+            for _, otherFoc in ipairs(focFolder:GetChildren()) do
+                local reqStr = otherFoc:GetAttribute("required") or "[]"
+                if string.find(reqStr, name, 1, true) then
+                    unlockCount = unlockCount + 1
+                end
+            end
+            score = unlockCount * 1000 + (10000 - cost)
+        else -- "smart" default
+            -- Check preferred list position (earlier = higher priority)
+            for i, pref in ipairs(preferredNames) do
+                if name == pref then
+                    score = (1000 - i) * 100
+                    break
+                end
+            end
+
+            -- Wartime bonus: military-sounding focuses get priority
+            if isCurrentlyAtWar then
+                local warKeywords = {"army", "military", "war", "defense", "call to arms",
+                    "blitzkrieg", "iron", "doctrine", "fortif", "mobiliz"}
+                local lowerName = string.lower(name)
+                for _, kw in ipairs(warKeywords) do
+                    if string.find(lowerName, kw, 1, true) then
+                        score = score + 5000
+                        break
+                    end
+                end
+            end
+
+            -- Slight bonus for cheaper focuses (faster completion)
+            score = score + math.max(0, 100 - cost)
+        end
+
+        return score
+    end
+
+    local lastFocusAttemptTime = 0
+    local focusCooldown = 3  -- seconds between focus attempts to avoid spam
+
+    local function RunSmartGovernmentFocuses()
+        local country = GetMyCountry()
+        if not country or not TryStartFocus then return end
+
+        -- Cooldown to prevent server spam
+        if (tick() - lastFocusAttemptTime) < focusCooldown then return end
+
+        local gov = country:FindFirstChild("Government")
+        local focFolder = gov and gov:FindFirstChild("Focuses")
+        if not focFolder then return end
+
+        local curFocusesStr = focFolder:GetAttribute("currentFocuses") or "[]"
+        local activeFocuses = {}
+        pcall(function() activeFocuses = HttpService:JSONDecode(curFocusesStr) end)
+
+        local pp = GetCountryPP(country)
+        currentPPDisplay = pp
+
+        -- If there's already an active focus, just track it and exit
+        if #activeFocuses > 0 then
+            currentActiveFocusName = tostring(activeFocuses[1])
+            return
+        end
+
+        currentActiveFocusName = "Idle"
+
+        -- If a specific focus is pinned, try to build the chain toward it
+        if pinnedFocusName then
+            local chain = BuildFocusChain(focFolder, pinnedFocusName)
+            if #chain > 0 then
+                local nextFocus = chain[1]  -- first uncompleted prerequisite (or the target itself)
+                local cost = nextFocus:GetAttribute("ppCost") or 0
+                if pp >= cost then
+                    lastFocusAttemptTime = tick()
+                    local ok = pcall(function()
+                        TryStartFocus:InvokeServer(nextFocus)
+                    end)
+                    if ok then
+                        currentActiveFocusName = nextFocus.Name
+                        if nextFocus.Name == pinnedFocusName then
+                            Notify("ðŸ›ï¸ Pinned Focus", "Started: " .. nextFocus.Name .. "!", 3)
+                        else
+                            Notify("ðŸ›ï¸ Prerequisite", "Building toward " .. pinnedFocusName .. ": " .. nextFocus.Name, 3)
+                        end
+                        return
+                    end
+                else
+                    currentActiveFocusName = "Waiting PP (" .. math.floor(pp) .. "/" .. cost .. ") â†’ " .. nextFocus.Name
+                    return
+                end
+            end
+        end
+
+        -- Gather all eligible candidates (completed prereqs, not done, affordable)
+        local candidates = {}
+        for _, focus in ipairs(focFolder:GetChildren()) do
+            local prog = focus:GetAttribute("progress") or 0
+            local cost = focus:GetAttribute("ppCost") or 0
+            if prog < 1 and pp >= cost then
+                local reqStr = focus:GetAttribute("required") or "[]"
+                local reqs = {}
+                pcall(function() reqs = HttpService:JSONDecode(reqStr) end)
+                local allMet = true
+                for _, reqName in ipairs(reqs) do
+                    local reqFoc = focFolder:FindFirstChild(reqName)
+                    if not reqFoc or (reqFoc:GetAttribute("progress") or 0) < 1 then
+                        allMet = false
+                        break
+                    end
+                end
+                if allMet then
+                    table.insert(candidates, focus)
+                end
+            end
+        end
+
+        if #candidates == 0 then
+            -- Show the cheapest unavailable focus the player is working toward
+            local cheapest = nil
+            local cheapestCost = math.huge
+            for _, focus in ipairs(focFolder:GetChildren()) do
+                local prog = focus:GetAttribute("progress") or 0
+                local cost = focus:GetAttribute("ppCost") or 0
+                if prog < 1 and cost < cheapestCost then
+                    local reqStr = focus:GetAttribute("required") or "[]"
+                    local reqs = {}
+                    pcall(function() reqs = HttpService:JSONDecode(reqStr) end)
+                    local allMet = true
+                    for _, reqName in ipairs(reqs) do
+                        local reqFoc = focFolder:FindFirstChild(reqName)
+                        if not reqFoc or (reqFoc:GetAttribute("progress") or 0) < 1 then
+                            allMet = false
+                            break
+                        end
+                    end
+                    if allMet then
+                        cheapest = focus
+                        cheapestCost = cost
+                    end
+                end
+            end
+            if cheapest then
+                currentActiveFocusName = "Need PP (" .. math.floor(pp) .. "/" .. cheapestCost .. ") â†’ " .. cheapest.Name
+            else
+                currentActiveFocusName = "All Focuses Done âœ…"
+            end
+            return
+        end
+
+        -- Score and sort candidates
+        local preferredNames = {
+            "Detain the Disruptive", "Reform the Royal Cabinet",
+            "Industry Driven", "Military Complex",
+            "Five-Year Plan", "Autarkic Steel Combine", "Army Discipline",
+            "Military Tradition", "Ironwill Doctrine", "Blitzkrieg",
+            "Call to Arms", "Forced Labor Logistics", "Build The Siegfried Line"
+        }
+
+        table.sort(candidates, function(a, b)
+            return ScoreFocus(a, preferredNames, country) > ScoreFocus(b, preferredNames, country)
+        end)
+
+        local chosen = candidates[1]
+        if chosen then
+            lastFocusAttemptTime = tick()
+            local ok = pcall(function()
+                TryStartFocus:InvokeServer(chosen)
+            end)
+            if ok then
+                currentActiveFocusName = chosen.Name
+                Notify("ðŸ›ï¸ Government Focus", "Started: " .. chosen.Name .. " (PP: " .. math.floor(pp) .. ")", 3)
+            end
+        end
+    end
+
+    -- ================================================================
+    -- 3. ðŸ­ SMART CITY & FACTORY UPGRADES
+    -- ================================================================
+    local function AnalyzeAndUpgradeCities()
+        local country = GetMyCountry()
+        if not country then return end
+        local money = GetCountryMoney(country)
+        local safeReserve = GetEffectiveReserveCash()
+        if money <= safeReserve then return end
+
+        local citiesFolder = country:FindFirstChild("Cities")
+        if not citiesFolder then return end
+
+        local cities = citiesFolder:GetChildren()
+        if #cities == 0 then return end
+
+        -- Sort cities: High capacity & Capital first for Factories
+        table.sort(cities, function(a, b)
+            local aCap = (a:GetAttribute("maxFactories") or 0) + (a:GetAttribute("isCapital") and 100 or 0)
+            local bCap = (b:GetAttribute("maxFactories") or 0) + (b:GetAttribute("isCapital") and 100 or 0)
+            return aCap > bCap
+        end)
+
+        -- Auto Set Priority City to the highest-population city or Capital
+        if smartPriorityCity and SetPriorityCity and cities[1] then
+            pcall(function()
+                SetPriorityCity:FireServer(cities[1].Name)
+            end)
+        end
+
+        for _, city in ipairs(cities) do
+            if not autoFactoryActive and not smartMasterActive and not autoDefenseActive then break end
+            money = GetCountryMoney(country)
+            if money <= safeReserve then break end
+
+            local currentFactories = city:GetAttribute("factories") or 0
+            local queuedFactories  = GetConstructionQueueCount(city, "factoryBuildQueue", "factoryBuildStart")
+            local maxFactories     = city:GetAttribute("maxFactories") or 0
+
+            local currentDefenses  = city:GetAttribute("defenses") or 0
+            local queuedDefenses   = GetConstructionQueueCount(city, "defenseBuildQueue", "defenseBuildStart")
+            local maxDefenses      = city:GetAttribute("maxDefenses") or 0
+
+            -- Priority 1: High max factories (Economic hubs) -> Build Factory
+            if (autoFactoryActive or smartMasterActive) and PurchaseFactory then
+                if (currentFactories + queuedFactories) < maxFactories then
+                    PurchaseFactory:FireServer(city)
+                    task.wait(0.2)
+                end
+            end
+
+            -- Priority 2: Fortify Defenses (Frontline & city protection)
+            if (autoDefenseActive or smartMasterActive or isCurrentlyAtWar) and PurchaseDefense then
+                if (currentDefenses + queuedDefenses) < maxDefenses and (currentDefenses + queuedDefenses) < 5 then
+                    PurchaseDefense:FireServer(city)
+                    task.wait(0.2)
+                end
+            end
+        end
+    end
+
+    -- ================================================================
+    -- 4. ðŸ”¬ SMART TECH RESEARCH LOOP
+    -- ================================================================
+    local function RunSmartTechResearch()
+        local country = GetMyCountry()
+        if not country or not StartResearch then return end
+
+        local slotsFolder = country:FindFirstChild("ResearchSlots")
+        local techsFolder = country:FindFirstChild("Techs")
+        if not slotsFolder or not techsFolder then return end
+
+        local hasFreeSlot = false
+        local activeResearches = {}
+
+        for _, slot in ipairs(slotsFolder:GetChildren()) do
+            local currentTech = slot:GetAttribute("tech") or (slot:IsA("ObjectValue") and slot.Value and slot.Value.Name)
+            if currentTech and currentTech ~= "" then
+                activeResearches[currentTech] = true
+            else
+                hasFreeSlot = true
+            end
+        end
+
+        if not hasFreeSlot and #slotsFolder:GetChildren() > 0 then return end
+
+        local candidateTech = nil
+        local priorityList = {}
+
+        if techFocusProfile == "Industrial" then
+            priorityList = {
+                "Industry I", "Industry II", "Industry III", "Industry IV",
+                "Transport Ship I", "Transport Ship II",
+                "Fortifications I", "Fortifications II", "Fortifications III"
+            }
+        elseif techFocusProfile == "Military" then
+            priorityList = {
+                "Infantry Equipment I", "Infantry Equipment II", "Infantry Equipment III",
+                "Tank Turret I", "Tank Turret II", "Tank Turret III", "Tank Turret IV",
+                "Fortifications I", "Fortifications II", "Fortifications III"
+            }
+        else -- Balanced
+            priorityList = {
+                "Industry I", "Infantry Equipment I", "Industry II", "Tank Turret I",
+                "Fortifications I", "Industry III", "Tank Turret II", "Infantry Equipment II"
+            }
+        end
+
+        for _, name in ipairs(priorityList) do
+            local tech = techsFolder:FindFirstChild(name)
+            if tech and not activeResearches[tech.Name] then
+                local prog = tech:GetAttribute("progress") or 0
+                if prog < 1 and IsTechPrerequisitesMet(country, tech) then
+                    candidateTech = tech
+                    break
+                end
+            end
+        end
+
+        if not candidateTech then
+            for _, tech in ipairs(techsFolder:GetChildren()) do
+                if not activeResearches[tech.Name] then
+                    local prog = tech:GetAttribute("progress") or 0
+                    if prog < 1 and IsTechPrerequisitesMet(country, tech) then
+                        candidateTech = tech
+                        break
+                    end
+                end
+            end
+        end
+
+        if candidateTech then
+            local money = GetCountryMoney(country)
+            local price = candidateTech:GetAttribute("price") or 0
+            local safeReserve = GetEffectiveReserveCash()
+            if money > (safeReserve + price) then
+                if not candidateTech:GetAttribute("purchased") and TryPurchaseTech then
+                    pcall(function() TryPurchaseTech:InvokeServer(candidateTech) end)
+                    task.wait(0.2)
+                end
+                StartResearch:FireServer(candidateTech)
+                Notify("Tech Research", "Started: " .. candidateTech.Name, 2)
+            end
+        end
+    end
+
+    -- ================================================================
+    -- 5. ðŸ’‚ SMART TROOP RECRUITMENT & REPLENISHMENT
+    -- ================================================================
+    local function RunSmartArmyRecruitment()
+        local country = GetMyCountry()
+        if not country or not TryIncreaseTarget then return end
+
+        local money = GetCountryMoney(country)
+        local manpower = GetCountryManpower(country)
+        local safeReserve = GetEffectiveReserveCash()
+        if money <= (safeReserve + 1000) or manpower < 1000 then return end
+
+        local armyFolder = country:FindFirstChild("Army")
+        local classes = armyFolder and armyFolder:FindFirstChild("Classes")
+        if not classes then return end
+
+        if smartMasterActive or autoInfantryActive or isCurrentlyAtWar then
+            local inf = classes:FindFirstChild("Infantry")
+            if inf then pcall(function() TryIncreaseTarget:InvokeServer(inf) end) end
+        end
+
+        if (smartMasterActive or autoTanksActive or isCurrentlyAtWar) and money > (safeReserve + 4000) then
+            local tanks = classes:FindFirstChild("Tanks")
+            if tanks then pcall(function() TryIncreaseTarget:InvokeServer(tanks) end) end
+        end
+
+        if (smartMasterActive or autoAntiTankActive) and money > (safeReserve + 2000) then
+            local at = classes:FindFirstChild("AntiTank")
+            if at then pcall(function() TryIncreaseTarget:InvokeServer(at) end) end
+        end
+    end
+
+    -- ================================================================
+    -- 6. ðŸ‘‘ AUTO-FORM EMPIRE
+    -- ================================================================
+    local function CheckAutoFormNation()
+        local country = GetMyCountry()
+        if not country or not TryFormCountry then return end
+        local formables = country:FindFirstChild("Formables")
+        if formables and #formables:GetChildren() > 0 then
+            for _, f in ipairs(formables:GetChildren()) do
+                pcall(function()
+                    local ok = TryFormCountry:InvokeServer(f.Name)
+                    if ok then
+                        Notify("ðŸ‘‘ EMPIRE FORMED!", "Ascended to: " .. f.Name .. "!", 4)
+                    end
+                end)
+            end
+        end
+    end
+
+    -- ================================================================
+    -- 7. ðŸŒ AUTO-JOIN MATCH LOBBY SELECTOR
+    -- ================================================================
+    local function CheckAutoSelectCountry()
+        if not autoSelectCountry or not CountrySelected then return end
+        local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+        local countryStat = leaderstats and leaderstats:FindFirstChild("Country")
+        local current = countryStat and countryStat.Value
+
+        if not current or current == "" or current == "None" then
+            CountrySelected:FireServer(targetCountryName)
+            Notify("Auto Select", "Joined match as " .. targetCountryName .. "!", 3)
+        end
+    end
+
+    -- ================================================================
+    -- MAIN ENGINE LOOP
+    -- ================================================================
+    task.spawn(function()
+        while not isDestroyed do
+            if autoSelectCountry then
+                pcall(CheckAutoSelectCountry)
+            end
+
+            local country = GetMyCountry()
+            if country then
+                -- 1. War Defense & Ally Response
+                if autoWarDefenseActive or smartMasterActive then
+                    pcall(RunSmartWarResponse)
+                end
+
+                -- 2. Government Focus Upgrades
+                if autoGovFocusActive or smartMasterActive then
+                    pcall(RunSmartGovernmentFocuses)
+                end
+
+                -- 3. City & Factory Upgrades
+                if smartMasterActive or autoFactoryActive or autoDefenseActive then
+                    pcall(AnalyzeAndUpgradeCities)
+                end
+
+                -- 4. Tech Research Upgrades
+                if smartMasterActive or autoResearchActive then
+                    pcall(RunSmartTechResearch)
+                end
+
+                -- 5. Army Recruitment
+                if smartMasterActive or autoInfantryActive or autoTanksActive or autoAntiTankActive or isCurrentlyAtWar then
+                    pcall(RunSmartArmyRecruitment)
+                end
+
+                -- 6. Manpower Purchase
+                if smartMasterActive or autoManpowerActive then
+                    local money = GetCountryMoney(country)
+                    local manpower = GetCountryManpower(country)
+                    if manpower < minManpowerThreshold and money > 8000 and TryBuyManpower then
+                        pcall(function() TryBuyManpower:InvokeServer() end)
+                    end
+                end
+
+                -- 7. Empire Formables
+                if autoFormEmpireActive or smartMasterActive then
+                    pcall(CheckAutoFormNation)
+                end
+            end
+            task.wait(1.5)
+        end
+    end)
+
+    -- ================================================================
+    -- TAB 1: âš¡ SMART AUTO FARM V2 + WAR & GOVERNMENT
+    -- ================================================================
+    local FarmTab = CreateTab("Auto Farm", "âš¡", "Smart AI War, Government & Economy V2")
+    local EconCol = CreateSection(FarmTab.Left,  "ðŸ§  Smart Economy & Government")
+    local ArmyCol = CreateSection(FarmTab.Right, "âš”ï¸ Smart War Defense & Logistics")
+
+    -- ðŸš€ MASTER AI TOGGLE
+    AddToggle(EconCol, "ðŸš€ MASTER SMART AI (All-in-One)", false, function(state)
+        smartMasterActive = state
+        autoGovFocusActive = state
+        autoWarDefenseActive = state
+        autoCallAlliesActive = state
+        Notify("Master Smart AI", state and "Enabled: War Defense, Government & Economy Active!" or "Disabled", 3)
+    end)
+
+    AddToggle(EconCol, "Auto Upgrade Government (Focuses)", true, function(state)
+        autoGovFocusActive = state
+    end)
+
+    -- Focus Strategy Selector
+    AddButton(EconCol, "Focus Strategy: ðŸ§  Smart (Preferred List)", function()
+        focusStrategy = "smart"
+        Notify("Focus Strategy", "Smart: Uses preferred focus priority list", 2)
+    end)
+
+    AddButton(EconCol, "Focus Strategy: ðŸ’° Cheapest First", function()
+        focusStrategy = "cheapest"
+        Notify("Focus Strategy", "Cheapest: Picks lowest PP cost focuses first", 2)
+    end)
+
+    AddButton(EconCol, "Focus Strategy: ðŸ”— Chain Unlock", function()
+        focusStrategy = "chain"
+        Notify("Focus Strategy", "Chain: Prioritizes focuses that unlock the most others", 2)
+    end)
+
+    -- Pin a specific focus to auto-upgrade toward (with prerequisite chain)
+    AddButton(EconCol, "ðŸ“Œ Pin: Reform the Royal Cabinet", function()
+        pinnedFocusName = "Reform the Royal Cabinet"
+        Notify("ðŸ“Œ Pinned Focus", "Will auto-build toward: Reform the Royal Cabinet", 3)
+    end)
+
+    AddButton(EconCol, "ðŸ“Œ Pin: Detain the Disruptive", function()
+        pinnedFocusName = "Detain the Disruptive"
+        Notify("ðŸ“Œ Pinned Focus", "Will auto-build toward: Detain the Disruptive", 3)
+    end)
+
+    AddButton(EconCol, "ðŸ“Œ Pin: Military Complex", function()
+        pinnedFocusName = "Military Complex"
+        Notify("ðŸ“Œ Pinned Focus", "Will auto-build toward: Military Complex", 3)
+    end)
+
+    AddButton(EconCol, "ðŸ“Œ Pin: Five-Year Plan", function()
+        pinnedFocusName = "Five-Year Plan"
+        Notify("ðŸ“Œ Pinned Focus", "Will auto-build toward: Five-Year Plan", 3)
+    end)
+
+    AddButton(EconCol, "âŒ Unpin Focus (Auto-pick)", function()
+        pinnedFocusName = nil
+        Notify("Focus Unpinned", "AI will auto-pick the best available focus", 2)
+    end)
+
+    AddToggle(EconCol, "Smart Prioritize High-Value Cities", true, function(state)
+        smartPriorityCity = state
+    end)
+
+    AddToggle(EconCol, "Auto Build Factories (Capacity AI)", false, function(state)
+        autoFactoryActive = state
+    end)
+
+    AddToggle(EconCol, "Auto Fortify Defenses (Border Defense)", false, function(state)
+        autoDefenseActive = state
+    end)
+
+    AddToggle(EconCol, "Auto Tech Research (Continuous Loop)", false, function(state)
+        autoResearchActive = state
+    end)
+
+    AddButton(EconCol, "Tech Focus: ðŸ­ Industrial", function()
+        techFocusProfile = "Industrial"
+        Notify("Tech Focus", "Set to: Industrial (Factory Limits & Econ)", 2)
+    end)
+
+    AddButton(EconCol, "Tech Focus: âš”ï¸ Military Might", function()
+        techFocusProfile = "Military"
+        Notify("Tech Focus", "Set to: Military (Infantry & Tank upgrades)", 2)
+    end)
+
+    AddButton(EconCol, "Tech Focus: âš–ï¸ Balanced Path", function()
+        techFocusProfile = "Balanced"
+        Notify("Tech Focus", "Set to: Balanced (Econ + Army hybrid)", 2)
+    end)
+
+    AddSlider(EconCol, "Reserve Cash Buffer ($)", 500, 100000, 3000, function(val)
+        reserveCash = val
+    end)
+
+    -- RIGHT COLUMN: WAR DEFENSE & MILITARY
+    AddToggle(ArmyCol, "ðŸš¨ Auto War Defense (Call Allies & Mobilize)", true, function(state)
+        autoWarDefenseActive = state
+    end)
+
+    AddToggle(ArmyCol, "Auto Call Allies to War", true, function(state)
+        autoCallAlliesActive = state
+    end)
+
+    AddToggle(ArmyCol, "Auto Train Infantry Divisions", false, function(state)
+        autoInfantryActive = state
+    end)
+
+    AddToggle(ArmyCol, "Auto Train Armor (Tanks)", false, function(state)
+        autoTanksActive = state
+    end)
+
+    AddToggle(ArmyCol, "Auto Train Anti-Tank Battalions", false, function(state)
+        autoAntiTankActive = state
+    end)
+
+    AddToggle(ArmyCol, "Auto Buy Manpower (When < 5k)", false, function(state)
+        autoManpowerActive = state
+    end)
+
+    AddToggle(ArmyCol, "Auto-Form Empire (When Ready)", false, function(state)
+        autoFormEmpireActive = state
+    end)
+
+    AddButton(ArmyCol, "âš¡ Instant Buy Manpower", function()
+        if TryBuyManpower then
+            local ok = pcall(function() TryBuyManpower:InvokeServer() end)
+            Notify("Manpower", ok and "Manpower purchase dispatched!" or "Failed to purchase", 2)
+        end
+    end)
+
+    -- ================================================================
+    -- TAB 2: ðŸŒ NATION, WAR & LOBBY
+    -- ================================================================
+    local NationTab = CreateTab("Nation", "ðŸŒ", "Live Country Overview & War Status")
+    local LobbyCol  = CreateSection(NationTab.Left,  "Country Selector")
+    local StatusCol = CreateSection(NationTab.Right, "Live Nation Status")
+
+    AddToggle(LobbyCol, "Auto Select Country on Match Start", false, function(state)
+        autoSelectCountry = state
+        if state then CheckAutoSelectCountry() end
+    end)
+
+    local countries = {
+        "Spain", "German Reich", "USSR", "United States", "United Kingdom",
+        "Empire of Japan", "France", "Italy", "Poland"
+    }
+
+    for _, cName in ipairs(countries) do
+        AddButton(LobbyCol, "Select " .. cName, function()
+            targetCountryName = cName
+            if CountrySelected then
+                CountrySelected:FireServer(cName)
+                Notify("Country Selected", "Joined as " .. cName .. "!", 2.5)
+            end
+        end)
+    end
+
+    -- Status Labels
+    local countryLbl = AddLabel(StatusCol, "Country: None", Theme.Accent)
+    local warStatusLbl = AddLabel(StatusCol, "War Status: Peace ðŸ•Šï¸", Theme.TextWhite)
+    local ppLbl      = AddLabel(StatusCol, "Political Power: 0", Theme.Accent)
+    local focusLbl   = AddLabel(StatusCol, "Gov Focus: None", Theme.Accent)
+    local stratLbl   = AddLabel(StatusCol, "Focus Strategy: smart", Theme.TextMuted)
+    local pinnedLbl  = AddLabel(StatusCol, "Pinned Focus: None", Theme.TextMuted)
+    local moneyLbl   = AddLabel(StatusCol, "Treasury: $0", Theme.TextWhite)
+    local manLbl     = AddLabel(StatusCol, "Manpower: 0", Theme.TextWhite)
+    local divLbl     = AddLabel(StatusCol, "Divisions: 0", Theme.TextWhite)
+    local factLbl    = AddLabel(StatusCol, "Factories: 0", Theme.TextWhite)
+    local tileLbl    = AddLabel(StatusCol, "Tiles: 0", Theme.TextWhite)
+
+    AddButton(StatusCol, "Check & Form Empire Now", function()
+        CheckAutoFormNation()
+    end)
+
+    -- Dynamic Status Refresher
+    task.spawn(function()
+        local function SetVal(row, txt)
+            local v = row and row:FindFirstChild("Value")
+            if v then v.Text = tostring(txt) end
+        end
+
+        while not isDestroyed do
+            local country = GetMyCountry()
+            if country then
+                SetVal(countryLbl, country.Name)
+
+                if isCurrentlyAtWar then
+                    SetVal(warStatusLbl, "ðŸš¨ AT WAR! (Defending)")
+                    local v = warStatusLbl and warStatusLbl:FindFirstChild("Value")
+                    if v then v.TextColor3 = Color3.fromRGB(255, 60, 60) end
+                else
+                    SetVal(warStatusLbl, "Peace ðŸ•Šï¸")
+                    local v = warStatusLbl and warStatusLbl:FindFirstChild("Value")
+                    if v then v.TextColor3 = Color3.fromRGB(0, 230, 120) end
+                end
+
+                -- Political Power display with color coding
+                local pp = GetCountryPP(country)
+                currentPPDisplay = pp
+                SetVal(ppLbl, string.format("%.0f PP", pp))
+                local ppv = ppLbl and ppLbl:FindFirstChild("Value")
+                if ppv then
+                    if pp >= 50 then
+                        ppv.TextColor3 = Color3.fromRGB(0, 230, 120)   -- Green = plenty
+                    elseif pp >= 20 then
+                        ppv.TextColor3 = Color3.fromRGB(255, 200, 50)  -- Yellow = moderate
+                    else
+                        ppv.TextColor3 = Color3.fromRGB(255, 80, 80)   -- Red = low
+                    end
+                end
+
+                -- Active focus with status indicator
+                local focusText = currentActiveFocusName
+                if autoGovFocusActive then
+                    focusText = "ðŸŸ¢ " .. focusText
+                else
+                    focusText = "âšª " .. focusText
+                end
+                SetVal(focusLbl, focusText)
+
+                -- Strategy & pinned focus
+                SetVal(stratLbl, focusStrategy:sub(1,1):upper() .. focusStrategy:sub(2))
+                SetVal(pinnedLbl, pinnedFocusName or "Auto-pick")
+
+                local m = country:GetAttribute("money") or 0
+                SetVal(moneyLbl, string.format("$%s", tostring(math.floor(m))))
+                local mp = country:GetAttribute("manpower") or 0
+                SetVal(manLbl, tostring(math.floor(mp)))
+                SetVal(divLbl, tostring(country:GetAttribute("divisions") or 0))
+                SetVal(factLbl, tostring(country:GetAttribute("factories") or 0))
+                SetVal(tileLbl, tostring(country:GetAttribute("tiles") or 0))
+            else
+                SetVal(countryLbl, "Lobby / None")
+                SetVal(warStatusLbl, "None")
+                SetVal(ppLbl, "0 PP")
+                SetVal(focusLbl, "None")
+                SetVal(stratLbl, focusStrategy)
+                SetVal(pinnedLbl, pinnedFocusName or "None")
+                SetVal(moneyLbl, "$0")
+                SetVal(manLbl, "0")
+                SetVal(divLbl, "0")
+                SetVal(factLbl, "0")
+                SetVal(tileLbl, "0")
+            end
+            task.wait(1)
+        end
+    end)
+
+    return true
+end
+
+return Game
+end)()
+
+local GameWW2 = (function()
+local Game = {}
+
+function Game.Configure(menu)
+    if game.PlaceId ~= GameConfigWW2.PlaceId then
+        return false
+    end
+    return GameFeaturesWW2.Configure(menu)
+end
+
+return Game
+end)()
+
 local menu = Window.new({Name = "MooN_HUB_Menu", Title = "MooN | HUB"})
 Dashboard.Configure(menu)
 Debug.Configure(menu)
 Auth.Configure(menu, function()
     if game.PlaceId == GameConfig139.PlaceId then
         Game139.Configure(menu)
+    elseif game.PlaceId == GameConfigWW2.PlaceId then
+        GameWW2.Configure(menu)
     end
 end)
 

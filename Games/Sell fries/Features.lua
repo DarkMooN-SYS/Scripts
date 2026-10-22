@@ -47,7 +47,8 @@ function Game.Configure(menu)
     end
     local function AddLabel(parent, text, color)
         local row = menu.AddInfo(parent, text, "")
-        if color and row and row.Value then row.Value.TextColor3 = color end
+        local val = row and row:FindFirstChild("Value")
+        if color and val then val.TextColor3 = color end
         return row
     end
     local function DestroyUI()

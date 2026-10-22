@@ -7,9 +7,12 @@ $modules = @(
     @{ Name = 'Dashboard'; Path = 'UI\Dashboard.lua' },
     @{ Name = 'Debug'; Path = 'UI\Debug.lua' },
     @{ Name = 'Auth'; Path = 'UI\Auth.lua' },
-    @{ Name = 'GameConfig139'; Path = 'Games\139542527731344\Config.lua' },
-    @{ Name = 'GameFeatures139'; Path = 'Games\139542527731344\Features.lua' },
-    @{ Name = 'Game139'; Path = 'Games\139542527731344\init.lua' }
+    @{ Name = 'GameConfig139'; Path = 'Games\Sell fries\Config.lua' },
+    @{ Name = 'GameFeatures139'; Path = 'Games\Sell fries\Features.lua' },
+    @{ Name = 'Game139'; Path = 'Games\Sell fries\init.lua' },
+    @{ Name = 'GameConfigWW2'; Path = 'Games\world WW2\Config.lua' },
+    @{ Name = 'GameFeaturesWW2'; Path = 'Games\world WW2\Features.lua' },
+    @{ Name = 'GameWW2'; Path = 'Games\world WW2\init.lua' }
 )
 
 $lines = [System.Collections.Generic.List[string]]::new()
@@ -28,6 +31,8 @@ $lines.Add('Debug.Configure(menu)')
 $lines.Add('Auth.Configure(menu, function()')
 $lines.Add('    if game.PlaceId == GameConfig139.PlaceId then')
 $lines.Add('        Game139.Configure(menu)')
+$lines.Add('    elseif game.PlaceId == GameConfigWW2.PlaceId then')
+$lines.Add('        GameWW2.Configure(menu)')
 $lines.Add('    end')
 $lines.Add('end)')
 $lines.Add('')
