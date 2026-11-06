@@ -167,7 +167,30 @@ function Game.Configure(menu)
     end
 
     -- ================================================================
-    -- TRAINING BONUS LISTENER (2X Tap Bonus)
+    -- HOOK: HUDController.SetGameplayVisible
+    -- Keep MooN Hub Menu visible even during throw or training sequences
+    -- ================================================================
+    pcall(function()
+        local controllers = LocalPlayer.PlayerScripts:WaitForChild("Client"):WaitForChild("Controllers")
+        local HUDController = require(controllers:WaitForChild("HUDController"))
+        if HUDController and not HUDController._moonHooked then
+            HUDController._moonHooked = true
+            local origSetVisible = HUDController.SetGameplayVisible
+            HUDController.SetGameplayVisible = function(visible, filter)
+                if not visible and filter and typeof(filter) == "table" then
+                    filter["MooN_HUB_Menu"] = true
+                elseif not visible and not filter then
+                    filter = { ["MooN_HUB_Menu"] = true }
+                end
+                return origSetVisible(visible, filter)
+            end
+
+            table.insert(cleanupCallbacks, function()
+                HUDController.SetGameplayVisible = origSetVisible
+                HUDController._moonHooked = nil
+            end)
+        end
+    end)
     -- ================================================================
     pcall(function()
         if Remotes and Remotes.Event then

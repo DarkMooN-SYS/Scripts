@@ -8,13 +8,15 @@ function Window.new(options)
     local player = Players.LocalPlayer
     assert(player, "UI must run on the client")
     local playerGui = player:WaitForChild("PlayerGui")
+    local gethui = gethui or function() return nil end
+    local guiParent = gethui() or playerGui
     local camera = workspace.CurrentCamera
     local viewport = camera and camera.ViewportSize or Vector2.new(1024, 768)
     local mobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
     local compact = mobile or viewport.X < 700
     local name = options.Name or "MooN_HUB_Menu"
 
-    local old = playerGui:FindFirstChild(name)
+    local old = guiParent:FindFirstChild(name) or playerGui:FindFirstChild(name)
     if old then old:Destroy() end
 
     local connections = {}
@@ -38,7 +40,14 @@ function Window.new(options)
     gui.ResetOnSpawn = false
     gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     gui.DisplayOrder = options.DisplayOrder or 20
-    gui.Parent = playerGui
+    gui.Parent = guiParent
+
+    -- If placed in PlayerGui, prevent external scripts from disabling it during sequences
+    connect(gui:GetPropertyChangedSignal("Enabled"), function()
+        if not destroyed and not gui.Enabled then
+            gui.Enabled = true
+        end
+    end)
 
     local main = Instance.new("Frame")
     main.Name = "Main"

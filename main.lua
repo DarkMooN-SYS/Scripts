@@ -312,13 +312,15 @@ function Window.new(options)
     local player = Players.LocalPlayer
     assert(player, "UI must run on the client")
     local playerGui = player:WaitForChild("PlayerGui")
+    local gethui = gethui or function() return nil end
+    local guiParent = gethui() or playerGui
     local camera = workspace.CurrentCamera
     local viewport = camera and camera.ViewportSize or Vector2.new(1024, 768)
     local mobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
     local compact = mobile or viewport.X < 700
     local name = options.Name or "MooN_HUB_Menu"
 
-    local old = playerGui:FindFirstChild(name)
+    local old = guiParent:FindFirstChild(name) or playerGui:FindFirstChild(name)
     if old then old:Destroy() end
 
     local connections = {}
@@ -342,7 +344,14 @@ function Window.new(options)
     gui.ResetOnSpawn = false
     gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     gui.DisplayOrder = options.DisplayOrder or 20
-    gui.Parent = playerGui
+    gui.Parent = guiParent
+
+    -- If placed in PlayerGui, prevent external scripts from disabling it during sequences
+    connect(gui:GetPropertyChangedSignal("Enabled"), function()
+        if not destroyed and not gui.Enabled then
+            gui.Enabled = true
+        end
+    end)
 
     local main = Instance.new("Frame")
     main.Name = "Main"
@@ -3155,7 +3164,30 @@ function Game.Configure(menu)
     end
 
     -- ================================================================
-    -- TRAINING BONUS LISTENER (2X Tap Bonus)
+    -- HOOK: HUDController.SetGameplayVisible
+    -- Keep MooN Hub Menu visible even during throw or training sequences
+    -- ================================================================
+    pcall(function()
+        local controllers = LocalPlayer.PlayerScripts:WaitForChild("Client"):WaitForChild("Controllers")
+        local HUDController = require(controllers:WaitForChild("HUDController"))
+        if HUDController and not HUDController._moonHooked then
+            HUDController._moonHooked = true
+            local origSetVisible = HUDController.SetGameplayVisible
+            HUDController.SetGameplayVisible = function(visible, filter)
+                if not visible and filter and typeof(filter) == "table" then
+                    filter["MooN_HUB_Menu"] = true
+                elseif not visible and not filter then
+                    filter = { ["MooN_HUB_Menu"] = true }
+                end
+                return origSetVisible(visible, filter)
+            end
+
+            table.insert(cleanupCallbacks, function()
+                HUDController.SetGameplayVisible = origSetVisible
+                HUDController._moonHooked = nil
+            end)
+        end
+    end)
     -- ================================================================
     pcall(function()
         if Remotes and Remotes.Event then
