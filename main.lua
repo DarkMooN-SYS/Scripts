@@ -3715,6 +3715,12 @@ function Game.Configure(menu)
     -- ================================================================
     -- UI: TAB 1 - FOOD FARM (🍖)
     -- ================================================================
+    -- Requiring/hooking game modules can lower the thread capabilities; restore before building UI
+    pcall(function()
+        local setIdentity = setthreadidentity or set_thread_identity or setidentity or setthreadcontext
+        if setIdentity then setIdentity(8) end
+    end)
+
     local farmTab = CreateTab("Food Farm", "🍖", "Throwing & Animal Automation")
 
     local throwSection = CreateSection(farmTab.Left, "Throw Controls")
