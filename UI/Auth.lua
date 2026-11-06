@@ -81,6 +81,16 @@ function Auth.Configure(menu, onAuthorized)
     pcall(function()
         if getgenv then env = getgenv() end
     end)
+
+    local isDev = true -- Set to true for local testing, false for release
+    if isDev or shared.DevBypass or env.DevBypass or _G.DevBypass or env.MoonDev or _G.MoonDev then
+        alive = false
+        if panel.Parent then panel:Destroy() end
+        menu.Main.Visible = true
+        menu.SetFloatingEnabled(true)
+        if onAuthorized then onAuthorized() end
+        return
+    end
     local synTable = env.syn or _G.syn
     local request = env.request or env.http_request or _G.request or _G.http_request
     if not request and synTable then request = synTable.request end

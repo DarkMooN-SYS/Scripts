@@ -453,7 +453,7 @@ function Window.new(options)
     close.Size = UDim2.fromOffset(25, 25)
     close.BackgroundColor3 = Theme.CardBg
     close.Font = Enum.Font.GothamBold
-    close.Text = "X"
+    close.Text = "×"
     close.TextColor3 = Theme.CloseRed
     close.Parent = controls
     Instance.new("UICorner", close).CornerRadius = UDim.new(0, 7)
@@ -1059,6 +1059,16 @@ function Auth.Configure(menu, onAuthorized)
     pcall(function()
         if getgenv then env = getgenv() end
     end)
+
+    local isDev = true -- Set to true for local testing, false for release
+    if isDev or shared.DevBypass or env.DevBypass or _G.DevBypass or env.MoonDev or _G.MoonDev then
+        alive = false
+        if panel.Parent then panel:Destroy() end
+        menu.Main.Visible = true
+        menu.SetFloatingEnabled(true)
+        if onAuthorized then onAuthorized() end
+        return
+    end
     local synTable = env.syn or _G.syn
     local request = env.request or env.http_request or _G.request or _G.http_request
     if not request and synTable then request = synTable.request end
@@ -1819,7 +1829,7 @@ task.spawn(function()
                         closeShutter()
                         autoShutterClosedIt = true
                         Notify("🚨 AUTO SHUTTER", "Anomaly at window! Teleported & Shutter closed!", 3)
-                        
+
                         task.delay(5, function() shutterCooldown = false end)
                     end
                 else
@@ -1991,7 +2001,6 @@ table.insert(activeConnections, RunService.RenderStepped:Connect(function()
         end
     end
 end))
--- end of speed and jump loop connection))
 
 local infJumpActive = false
 AddToggle(MoveCol, "Infinite Jump", false, function(v)
@@ -2296,14 +2305,6 @@ function Game.Configure(menu)
     local minManpowerThreshold    = 5000
     local isCurrentlyAtWar        = false
     local currentActiveFocusName  = "None"
-    local currentPPDisplay        = 0           -- Tracked for UI display
-
-    -- Focus priority strategy: "smart" picks from preferred list, "cheapest" picks lowest PP cost first,
-    -- "chain" follows prerequisite chains to unlock deep focuses ASAP
-    local focusStrategy           = "smart"     -- "smart", "cheapest", "chain"
-
-    -- User can pin a specific focus name to prioritize above everything else
-    local pinnedFocusName         = nil          -- Set via UI button
 
     -- ================================================================
     -- HELPER FUNCTIONS
@@ -2374,7 +2375,7 @@ function Game.Configure(menu)
     end
 
     -- ================================================================
-    -- 1. âš”ï¸ WAR & ENEMY DEFENSE ENGINE
+    -- 1. ⚔️ WAR & ENEMY DEFENSE ENGINE
     -- ================================================================
     local lastAllyCallTime = 0
 
@@ -2389,7 +2390,7 @@ function Game.Configure(menu)
         if #enemies > 0 then
             if not isCurrentlyAtWar then
                 isCurrentlyAtWar = true
-                Notify("ðŸš¨ WAR DETECTED!", "At war with " .. enemies[1].Name .. "! War Mobilization Activated!", 4)
+                Notify("🚨 WAR DETECTED!", "At war with " .. enemies[1].Name .. "! War Mobilization Activated!", 4)
             end
 
             -- 1. Auto Call Allies to War
@@ -2433,102 +2434,11 @@ function Game.Configure(menu)
     end
 
     -- ================================================================
-    -- 2. ðŸ›ï¸ SMART GOVERNMENT FOCUS UPGRADES (Enhanced V3)
+    -- 2. 🏛️ SMART GOVERNMENT FOCUS UPGRADES
     -- ================================================================
-
-    -- Build the prerequisite chain needed to unlock a target focus
-    -- Returns an ordered list of focuses to complete (from leaf to target)
-    local function BuildFocusChain(focFolder, targetName)
-        local chain = {}
-        local visited = {}
-
-        local function walk(name)
-            if visited[name] then return true end
-            visited[name] = true
-            local foc = focFolder:FindFirstChild(name)
-            if not foc then return false end
-            -- Already completed
-            if (foc:GetAttribute("progress") or 0) >= 1 then return true end
-
-            local reqStr = foc:GetAttribute("required") or "[]"
-            local reqs = {}
-            pcall(function() reqs = HttpService:JSONDecode(reqStr) end)
-
-            for _, reqName in ipairs(reqs) do
-                if not walk(reqName) then return false end
-            end
-
-            table.insert(chain, foc)
-            return true
-        end
-
-        walk(targetName)
-        return chain
-    end
-
-    -- Score a focus candidate based on strategy and context
-    local function ScoreFocus(focus, preferredNames, country)
-        local score = 0
-        local name = focus.Name
-        local cost = focus:GetAttribute("ppCost") or 0
-
-        -- Pinned focus gets highest priority
-        if pinnedFocusName and name == pinnedFocusName then
-            return 100000
-        end
-
-        if focusStrategy == "cheapest" then
-            -- Lower cost = higher score (invert)
-            score = 10000 - cost
-        elseif focusStrategy == "chain" then
-            -- Prefer focuses that unlock the most subsequent focuses
-            local focFolder = focus.Parent
-            local unlockCount = 0
-            for _, otherFoc in ipairs(focFolder:GetChildren()) do
-                local reqStr = otherFoc:GetAttribute("required") or "[]"
-                if string.find(reqStr, name, 1, true) then
-                    unlockCount = unlockCount + 1
-                end
-            end
-            score = unlockCount * 1000 + (10000 - cost)
-        else -- "smart" default
-            -- Check preferred list position (earlier = higher priority)
-            for i, pref in ipairs(preferredNames) do
-                if name == pref then
-                    score = (1000 - i) * 100
-                    break
-                end
-            end
-
-            -- Wartime bonus: military-sounding focuses get priority
-            if isCurrentlyAtWar then
-                local warKeywords = {"army", "military", "war", "defense", "call to arms",
-                    "blitzkrieg", "iron", "doctrine", "fortif", "mobiliz"}
-                local lowerName = string.lower(name)
-                for _, kw in ipairs(warKeywords) do
-                    if string.find(lowerName, kw, 1, true) then
-                        score = score + 5000
-                        break
-                    end
-                end
-            end
-
-            -- Slight bonus for cheaper focuses (faster completion)
-            score = score + math.max(0, 100 - cost)
-        end
-
-        return score
-    end
-
-    local lastFocusAttemptTime = 0
-    local focusCooldown = 3  -- seconds between focus attempts to avoid spam
-
     local function RunSmartGovernmentFocuses()
         local country = GetMyCountry()
         if not country or not TryStartFocus then return end
-
-        -- Cooldown to prevent server spam
-        if (tick() - lastFocusAttemptTime) < focusCooldown then return end
 
         local gov = country:FindFirstChild("Government")
         local focFolder = gov and gov:FindFirstChild("Focuses")
@@ -2538,46 +2448,16 @@ function Game.Configure(menu)
         local activeFocuses = {}
         pcall(function() activeFocuses = HttpService:JSONDecode(curFocusesStr) end)
 
-        local pp = GetCountryPP(country)
-        currentPPDisplay = pp
-
-        -- If there's already an active focus, just track it and exit
         if #activeFocuses > 0 then
             currentActiveFocusName = tostring(activeFocuses[1])
             return
         end
 
-        currentActiveFocusName = "Idle"
+        currentActiveFocusName = "Idle / Searching..."
 
-        -- If a specific focus is pinned, try to build the chain toward it
-        if pinnedFocusName then
-            local chain = BuildFocusChain(focFolder, pinnedFocusName)
-            if #chain > 0 then
-                local nextFocus = chain[1]  -- first uncompleted prerequisite (or the target itself)
-                local cost = nextFocus:GetAttribute("ppCost") or 0
-                if pp >= cost then
-                    lastFocusAttemptTime = tick()
-                    local ok = pcall(function()
-                        TryStartFocus:InvokeServer(nextFocus)
-                    end)
-                    if ok then
-                        currentActiveFocusName = nextFocus.Name
-                        if nextFocus.Name == pinnedFocusName then
-                            Notify("ðŸ›ï¸ Pinned Focus", "Started: " .. nextFocus.Name .. "!", 3)
-                        else
-                            Notify("ðŸ›ï¸ Prerequisite", "Building toward " .. pinnedFocusName .. ": " .. nextFocus.Name, 3)
-                        end
-                        return
-                    end
-                else
-                    currentActiveFocusName = "Waiting PP (" .. math.floor(pp) .. "/" .. cost .. ") â†’ " .. nextFocus.Name
-                    return
-                end
-            end
-        end
-
-        -- Gather all eligible candidates (completed prereqs, not done, affordable)
+        local pp = GetCountryPP(country)
         local candidates = {}
+
         for _, focus in ipairs(focFolder:GetChildren()) do
             local prog = focus:GetAttribute("progress") or 0
             local cost = focus:GetAttribute("ppCost") or 0
@@ -2599,67 +2479,44 @@ function Game.Configure(menu)
             end
         end
 
-        if #candidates == 0 then
-            -- Show the cheapest unavailable focus the player is working toward
-            local cheapest = nil
-            local cheapestCost = math.huge
-            for _, focus in ipairs(focFolder:GetChildren()) do
-                local prog = focus:GetAttribute("progress") or 0
-                local cost = focus:GetAttribute("ppCost") or 0
-                if prog < 1 and cost < cheapestCost then
-                    local reqStr = focus:GetAttribute("required") or "[]"
-                    local reqs = {}
-                    pcall(function() reqs = HttpService:JSONDecode(reqStr) end)
-                    local allMet = true
-                    for _, reqName in ipairs(reqs) do
-                        local reqFoc = focFolder:FindFirstChild(reqName)
-                        if not reqFoc or (reqFoc:GetAttribute("progress") or 0) < 1 then
-                            allMet = false
-                            break
-                        end
-                    end
-                    if allMet then
-                        cheapest = focus
-                        cheapestCost = cost
+        if #candidates > 0 then
+            -- Preferred priority order for focuses
+            local preferredNames = {
+                "Detain the Disruptive", "Industry Driven", "Military Complex",
+                "Five-Year Plan", "Autarkic Steel Combine", "Army Discipline",
+                "Military Tradition", "Ironwill Doctrine", "Blitzkrieg",
+                "Call to Arms", "Forced Labor Logistics", "Build The Siegfried Line"
+            }
+
+            local chosen = nil
+            for _, pref in ipairs(preferredNames) do
+                for _, cand in ipairs(candidates) do
+                    if cand.Name == pref then
+                        chosen = cand
+                        break
                     end
                 end
+                if chosen then break end
             end
-            if cheapest then
-                currentActiveFocusName = "Need PP (" .. math.floor(pp) .. "/" .. cheapestCost .. ") â†’ " .. cheapest.Name
-            else
-                currentActiveFocusName = "All Focuses Done âœ…"
+
+            if not chosen then
+                chosen = candidates[1]
             end
-            return
-        end
 
-        -- Score and sort candidates
-        local preferredNames = {
-            "Detain the Disruptive", "Reform the Royal Cabinet",
-            "Industry Driven", "Military Complex",
-            "Five-Year Plan", "Autarkic Steel Combine", "Army Discipline",
-            "Military Tradition", "Ironwill Doctrine", "Blitzkrieg",
-            "Call to Arms", "Forced Labor Logistics", "Build The Siegfried Line"
-        }
-
-        table.sort(candidates, function(a, b)
-            return ScoreFocus(a, preferredNames, country) > ScoreFocus(b, preferredNames, country)
-        end)
-
-        local chosen = candidates[1]
-        if chosen then
-            lastFocusAttemptTime = tick()
-            local ok = pcall(function()
-                TryStartFocus:InvokeServer(chosen)
-            end)
-            if ok then
-                currentActiveFocusName = chosen.Name
-                Notify("ðŸ›ï¸ Government Focus", "Started: " .. chosen.Name .. " (PP: " .. math.floor(pp) .. ")", 3)
+            if chosen then
+                local ok = pcall(function()
+                    TryStartFocus:InvokeServer(chosen)
+                end)
+                if ok then
+                    currentActiveFocusName = chosen.Name
+                    Notify("🏛️ Government Upgrade", "Started Focus: " .. chosen.Name .. "!", 3)
+                end
             end
         end
     end
 
     -- ================================================================
-    -- 3. ðŸ­ SMART CITY & FACTORY UPGRADES
+    -- 3. 🏭 SMART CITY & FACTORY UPGRADES
     -- ================================================================
     local function AnalyzeAndUpgradeCities()
         local country = GetMyCountry()
@@ -2720,7 +2577,7 @@ function Game.Configure(menu)
     end
 
     -- ================================================================
-    -- 4. ðŸ”¬ SMART TECH RESEARCH LOOP
+    -- 4. 🔬 SMART TECH RESEARCH LOOP
     -- ================================================================
     local function RunSmartTechResearch()
         local country = GetMyCountry()
@@ -2805,7 +2662,7 @@ function Game.Configure(menu)
     end
 
     -- ================================================================
-    -- 5. ðŸ’‚ SMART TROOP RECRUITMENT & REPLENISHMENT
+    -- 5. 💂 SMART TROOP RECRUITMENT & REPLENISHMENT
     -- ================================================================
     local function RunSmartArmyRecruitment()
         local country = GetMyCountry()
@@ -2837,7 +2694,7 @@ function Game.Configure(menu)
     end
 
     -- ================================================================
-    -- 6. ðŸ‘‘ AUTO-FORM EMPIRE
+    -- 6. 👑 AUTO-FORM EMPIRE
     -- ================================================================
     local function CheckAutoFormNation()
         local country = GetMyCountry()
@@ -2848,7 +2705,7 @@ function Game.Configure(menu)
                 pcall(function()
                     local ok = TryFormCountry:InvokeServer(f.Name)
                     if ok then
-                        Notify("ðŸ‘‘ EMPIRE FORMED!", "Ascended to: " .. f.Name .. "!", 4)
+                        Notify("👑 EMPIRE FORMED!", "Ascended to: " .. f.Name .. "!", 4)
                     end
                 end)
             end
@@ -2856,7 +2713,7 @@ function Game.Configure(menu)
     end
 
     -- ================================================================
-    -- 7. ðŸŒ AUTO-JOIN MATCH LOBBY SELECTOR
+    -- 7. 🌍 AUTO-JOIN MATCH LOBBY SELECTOR
     -- ================================================================
     local function CheckAutoSelectCountry()
         if not autoSelectCountry or not CountrySelected then return end
@@ -2925,14 +2782,14 @@ function Game.Configure(menu)
     end)
 
     -- ================================================================
-    -- TAB 1: âš¡ SMART AUTO FARM V2 + WAR & GOVERNMENT
+    -- TAB 1: ⚡ SMART AUTO FARM V2 + WAR & GOVERNMENT
     -- ================================================================
-    local FarmTab = CreateTab("Auto Farm", "âš¡", "Smart AI War, Government & Economy V2")
-    local EconCol = CreateSection(FarmTab.Left,  "ðŸ§  Smart Economy & Government")
-    local ArmyCol = CreateSection(FarmTab.Right, "âš”ï¸ Smart War Defense & Logistics")
+    local FarmTab = CreateTab("Auto Farm", "⚡", "Smart AI War, Government & Economy V2")
+    local EconCol = CreateSection(FarmTab.Left,  "🧠 Smart Economy & Government")
+    local ArmyCol = CreateSection(FarmTab.Right, "⚔️ Smart War Defense & Logistics")
 
-    -- ðŸš€ MASTER AI TOGGLE
-    AddToggle(EconCol, "ðŸš€ MASTER SMART AI (All-in-One)", false, function(state)
+    -- 🚀 MASTER AI TOGGLE
+    AddToggle(EconCol, "🚀 MASTER SMART AI (All-in-One)", false, function(state)
         smartMasterActive = state
         autoGovFocusActive = state
         autoWarDefenseActive = state
@@ -2942,48 +2799,6 @@ function Game.Configure(menu)
 
     AddToggle(EconCol, "Auto Upgrade Government (Focuses)", true, function(state)
         autoGovFocusActive = state
-    end)
-
-    -- Focus Strategy Selector
-    AddButton(EconCol, "Focus Strategy: ðŸ§  Smart (Preferred List)", function()
-        focusStrategy = "smart"
-        Notify("Focus Strategy", "Smart: Uses preferred focus priority list", 2)
-    end)
-
-    AddButton(EconCol, "Focus Strategy: ðŸ’° Cheapest First", function()
-        focusStrategy = "cheapest"
-        Notify("Focus Strategy", "Cheapest: Picks lowest PP cost focuses first", 2)
-    end)
-
-    AddButton(EconCol, "Focus Strategy: ðŸ”— Chain Unlock", function()
-        focusStrategy = "chain"
-        Notify("Focus Strategy", "Chain: Prioritizes focuses that unlock the most others", 2)
-    end)
-
-    -- Pin a specific focus to auto-upgrade toward (with prerequisite chain)
-    AddButton(EconCol, "ðŸ“Œ Pin: Reform the Royal Cabinet", function()
-        pinnedFocusName = "Reform the Royal Cabinet"
-        Notify("ðŸ“Œ Pinned Focus", "Will auto-build toward: Reform the Royal Cabinet", 3)
-    end)
-
-    AddButton(EconCol, "ðŸ“Œ Pin: Detain the Disruptive", function()
-        pinnedFocusName = "Detain the Disruptive"
-        Notify("ðŸ“Œ Pinned Focus", "Will auto-build toward: Detain the Disruptive", 3)
-    end)
-
-    AddButton(EconCol, "ðŸ“Œ Pin: Military Complex", function()
-        pinnedFocusName = "Military Complex"
-        Notify("ðŸ“Œ Pinned Focus", "Will auto-build toward: Military Complex", 3)
-    end)
-
-    AddButton(EconCol, "ðŸ“Œ Pin: Five-Year Plan", function()
-        pinnedFocusName = "Five-Year Plan"
-        Notify("ðŸ“Œ Pinned Focus", "Will auto-build toward: Five-Year Plan", 3)
-    end)
-
-    AddButton(EconCol, "âŒ Unpin Focus (Auto-pick)", function()
-        pinnedFocusName = nil
-        Notify("Focus Unpinned", "AI will auto-pick the best available focus", 2)
     end)
 
     AddToggle(EconCol, "Smart Prioritize High-Value Cities", true, function(state)
@@ -3002,17 +2817,17 @@ function Game.Configure(menu)
         autoResearchActive = state
     end)
 
-    AddButton(EconCol, "Tech Focus: ðŸ­ Industrial", function()
+    AddButton(EconCol, "Tech Focus: 🏭 Industrial", function()
         techFocusProfile = "Industrial"
         Notify("Tech Focus", "Set to: Industrial (Factory Limits & Econ)", 2)
     end)
 
-    AddButton(EconCol, "Tech Focus: âš”ï¸ Military Might", function()
+    AddButton(EconCol, "Tech Focus: ⚔️ Military Might", function()
         techFocusProfile = "Military"
         Notify("Tech Focus", "Set to: Military (Infantry & Tank upgrades)", 2)
     end)
 
-    AddButton(EconCol, "Tech Focus: âš–ï¸ Balanced Path", function()
+    AddButton(EconCol, "Tech Focus: ⚖️ Balanced Path", function()
         techFocusProfile = "Balanced"
         Notify("Tech Focus", "Set to: Balanced (Econ + Army hybrid)", 2)
     end)
@@ -3022,7 +2837,7 @@ function Game.Configure(menu)
     end)
 
     -- RIGHT COLUMN: WAR DEFENSE & MILITARY
-    AddToggle(ArmyCol, "ðŸš¨ Auto War Defense (Call Allies & Mobilize)", true, function(state)
+    AddToggle(ArmyCol, "🚨 Auto War Defense (Call Allies & Mobilize)", true, function(state)
         autoWarDefenseActive = state
     end)
 
@@ -3050,7 +2865,7 @@ function Game.Configure(menu)
         autoFormEmpireActive = state
     end)
 
-    AddButton(ArmyCol, "âš¡ Instant Buy Manpower", function()
+    AddButton(ArmyCol, "⚡ Instant Buy Manpower", function()
         if TryBuyManpower then
             local ok = pcall(function() TryBuyManpower:InvokeServer() end)
             Notify("Manpower", ok and "Manpower purchase dispatched!" or "Failed to purchase", 2)
@@ -3058,9 +2873,9 @@ function Game.Configure(menu)
     end)
 
     -- ================================================================
-    -- TAB 2: ðŸŒ NATION, WAR & LOBBY
+    -- TAB 2: 🌍 NATION, WAR & LOBBY
     -- ================================================================
-    local NationTab = CreateTab("Nation", "ðŸŒ", "Live Country Overview & War Status")
+    local NationTab = CreateTab("Nation", "🌍", "Live Country Overview & War Status")
     local LobbyCol  = CreateSection(NationTab.Left,  "Country Selector")
     local StatusCol = CreateSection(NationTab.Right, "Live Nation Status")
 
@@ -3086,11 +2901,8 @@ function Game.Configure(menu)
 
     -- Status Labels
     local countryLbl = AddLabel(StatusCol, "Country: None", Theme.Accent)
-    local warStatusLbl = AddLabel(StatusCol, "War Status: Peace ðŸ•Šï¸", Theme.TextWhite)
-    local ppLbl      = AddLabel(StatusCol, "Political Power: 0", Theme.Accent)
+    local warStatusLbl = AddLabel(StatusCol, "War Status: Peace 🕊️", Theme.TextWhite)
     local focusLbl   = AddLabel(StatusCol, "Gov Focus: None", Theme.Accent)
-    local stratLbl   = AddLabel(StatusCol, "Focus Strategy: smart", Theme.TextMuted)
-    local pinnedLbl  = AddLabel(StatusCol, "Pinned Focus: None", Theme.TextMuted)
     local moneyLbl   = AddLabel(StatusCol, "Treasury: $0", Theme.TextWhite)
     local manLbl     = AddLabel(StatusCol, "Manpower: 0", Theme.TextWhite)
     local divLbl     = AddLabel(StatusCol, "Divisions: 0", Theme.TextWhite)
@@ -3114,42 +2926,16 @@ function Game.Configure(menu)
                 SetVal(countryLbl, country.Name)
 
                 if isCurrentlyAtWar then
-                    SetVal(warStatusLbl, "ðŸš¨ AT WAR! (Defending)")
+                    SetVal(warStatusLbl, "🚨 AT WAR! (Defending)")
                     local v = warStatusLbl and warStatusLbl:FindFirstChild("Value")
                     if v then v.TextColor3 = Color3.fromRGB(255, 60, 60) end
                 else
-                    SetVal(warStatusLbl, "Peace ðŸ•Šï¸")
+                    SetVal(warStatusLbl, "Peace 🕊️")
                     local v = warStatusLbl and warStatusLbl:FindFirstChild("Value")
                     if v then v.TextColor3 = Color3.fromRGB(0, 230, 120) end
                 end
 
-                -- Political Power display with color coding
-                local pp = GetCountryPP(country)
-                currentPPDisplay = pp
-                SetVal(ppLbl, string.format("%.0f PP", pp))
-                local ppv = ppLbl and ppLbl:FindFirstChild("Value")
-                if ppv then
-                    if pp >= 50 then
-                        ppv.TextColor3 = Color3.fromRGB(0, 230, 120)   -- Green = plenty
-                    elseif pp >= 20 then
-                        ppv.TextColor3 = Color3.fromRGB(255, 200, 50)  -- Yellow = moderate
-                    else
-                        ppv.TextColor3 = Color3.fromRGB(255, 80, 80)   -- Red = low
-                    end
-                end
-
-                -- Active focus with status indicator
-                local focusText = currentActiveFocusName
-                if autoGovFocusActive then
-                    focusText = "ðŸŸ¢ " .. focusText
-                else
-                    focusText = "âšª " .. focusText
-                end
-                SetVal(focusLbl, focusText)
-
-                -- Strategy & pinned focus
-                SetVal(stratLbl, focusStrategy:sub(1,1):upper() .. focusStrategy:sub(2))
-                SetVal(pinnedLbl, pinnedFocusName or "Auto-pick")
+                SetVal(focusLbl, currentActiveFocusName)
 
                 local m = country:GetAttribute("money") or 0
                 SetVal(moneyLbl, string.format("$%s", tostring(math.floor(m))))
@@ -3161,10 +2947,7 @@ function Game.Configure(menu)
             else
                 SetVal(countryLbl, "Lobby / None")
                 SetVal(warStatusLbl, "None")
-                SetVal(ppLbl, "0 PP")
                 SetVal(focusLbl, "None")
-                SetVal(stratLbl, focusStrategy)
-                SetVal(pinnedLbl, pinnedFocusName or "None")
                 SetVal(moneyLbl, "$0")
                 SetVal(manLbl, "0")
                 SetVal(divLbl, "0")
@@ -3194,6 +2977,445 @@ end
 return Game
 end)()
 
+local GameConfigFood = (function()
+return {
+    PlaceId = 120219252362013,
+    UniverseId = 10766972131,
+    Name = "Throw Food For Animals",
+}
+end)()
+
+local GameFeaturesFood = (function()
+local Game = {}
+
+function Game.Configure(menu)
+    if game.PlaceId ~= GameConfigFood.PlaceId then
+        return false
+    end
+
+    local Players = game:GetService("Players")
+    local TweenService = game:GetService("TweenService")
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local LocalPlayer = Players.LocalPlayer
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    local ScreenGui = menu.Gui
+    local Main = menu.Main
+    local Theme = menu.Context.Theme
+    local IS_MOBILE = menu.Context.IsMobile
+    local activeConnections = {}
+    local cleanupCallbacks = {}
+    local isDestroyed = false
+
+    local function FastTween(object, duration, properties)
+        menu.Context.Tween(object, duration, properties)
+    end
+
+    local function Notify(title, message, duration)
+        if menu.Notify then menu.Notify(title, message, duration) end
+    end
+
+    local function CreateTab(name, icon)
+        return menu.CreateTab(name, icon, "Experience controls")
+    end
+    local function CreateSection(parent, title)
+        return menu.CreateSection(parent, title)
+    end
+    local function AddToggle(parent, label, default, callback)
+        return menu.AddToggle(parent, label, default, menu.Debug.Wrap(label, callback))
+    end
+    local function AddSlider(parent, label, minimum, maximum, default, callback)
+        return menu.AddSlider(parent, label, minimum, maximum, default, menu.Debug.Wrap(label, callback))
+    end
+    local function AddButton(parent, label, callback)
+        return menu.AddButton(parent, label, menu.Debug.Wrap(label, callback))
+    end
+    local function AddLabel(parent, text, color)
+        local row = menu.AddInfo(parent, text, "")
+        local val = row and row:FindFirstChild("Value")
+        if color and val then val.TextColor3 = color end
+        return row
+    end
+
+    menu.AddCleanup(function()
+        isDestroyed = true
+        for _, callback in ipairs(cleanupCallbacks) do pcall(callback) end
+        for _, connection in ipairs(activeConnections) do
+            pcall(function() connection:Disconnect() end)
+        end
+        table.clear(activeConnections)
+    end)
+
+    -- ================================================================
+    -- GAME CONTROLLER REFERENCES & REMOTES
+    -- ================================================================
+    local Remotes = nil
+    pcall(function()
+        Remotes = require(ReplicatedStorage.Shared.Remotes)
+    end)
+
+    local ThrowMeter = nil
+    local ThrowController = nil
+    local RevealSequence = nil
+    local ClientState = nil
+
+    pcall(function()
+        local controllers = LocalPlayer.PlayerScripts:WaitForChild("Client"):WaitForChild("Controllers")
+        ThrowMeter = require(controllers:WaitForChild("ThrowMeter"))
+        ThrowController = require(controllers:WaitForChild("ThrowController"))
+        RevealSequence = require(controllers:WaitForChild("RevealSequence"))
+        ClientState = require(controllers:WaitForChild("ClientState"))
+    end)
+
+    -- ================================================================
+    -- SETTINGS STATE
+    -- ================================================================
+    local autoPerfectThrow = true
+    local autoLoopThrow = false
+    local autoPlaceAnimals = true
+    local autoEquipBest = true
+    local fastReveal = true
+    local autoTrain = false
+    local rethrowDelay = 1.2
+    local lastThrowTime = 0
+    local isThrowing = false
+
+    -- ================================================================
+    -- HOOK: AUTO PERFECT THROW
+    -- ================================================================
+    if ThrowMeter and not ThrowMeter._moonHooked then
+        ThrowMeter._moonHooked = true
+        local origNew = ThrowMeter.new
+        ThrowMeter.new = function(...)
+            local meter = origNew(...)
+            if autoPerfectThrow then
+                meter.Locked = true
+                ThrowMeter.TestAutoTap = 0.38
+            else
+                ThrowMeter.TestAutoTap = nil
+            end
+            return meter
+        end
+
+        table.insert(cleanupCallbacks, function()
+            ThrowMeter.new = origNew
+            ThrowMeter.TestAutoTap = nil
+            ThrowMeter._moonHooked = nil
+        end)
+    end
+
+    -- ================================================================
+    -- HOOK: FAST / SKIP REVEAL
+    -- ================================================================
+    if RevealSequence and not RevealSequence._moonHooked then
+        RevealSequence._moonHooked = true
+        local origRun = RevealSequence.Run
+        RevealSequence.Run = function(args)
+            if fastReveal then
+                task.wait(0.2)
+                return
+            end
+            return origRun(args)
+        end
+
+        table.insert(cleanupCallbacks, function()
+            RevealSequence.Run = origRun
+            RevealSequence._moonHooked = nil
+        end)
+    end
+
+    -- ================================================================
+    -- HELPER FUNCTIONS
+    -- ================================================================
+    local function GetPlot()
+        local plotIndex = LocalPlayer:GetAttribute("PlotIndex")
+        if not plotIndex then return nil end
+        return workspace.Plots:FindFirstChild(tostring(plotIndex))
+    end
+
+    local function GetRandomPlotPosition()
+        local plot = GetPlot()
+        if not plot then return nil end
+        local rx = math.random(-14, 14)
+        local rz = math.random(-14, 14)
+        return plot.Position + Vector3.new(rx, 0.5, rz)
+    end
+
+    local function GetThrowLineCFrame()
+        local starter = workspace:FindFirstChild("StarterArea")
+        local crossLine = starter and starter:FindFirstChild("CrossLine")
+        if crossLine then
+            return CFrame.new(crossLine.Position.X, crossLine.Position.Y + 2.5, crossLine.Position.Z + 2)
+        end
+        return CFrame.new(0, 5, -38)
+    end
+
+    -- ================================================================
+    -- AUTO PLACE ANIMALS & EGGS
+    -- ================================================================
+    local function ProcessPlacement()
+        if not autoPlaceAnimals or not Remotes then return end
+
+        local character = LocalPlayer.Character
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+
+        local tools = {}
+        if character then
+            for _, item in ipairs(character:GetChildren()) do
+                if item:IsA("Tool") and (item:GetAttribute("AnimalId") or item:GetAttribute("EggKey")) then
+                    table.insert(tools, item)
+                end
+            end
+        end
+        if backpack then
+            for _, item in ipairs(backpack:GetChildren()) do
+                if item:IsA("Tool") and (item:GetAttribute("AnimalId") or item:GetAttribute("EggKey")) then
+                    table.insert(tools, item)
+                end
+            end
+        end
+
+        for _, tool in ipairs(tools) do
+            local animalId = tool:GetAttribute("AnimalId")
+            local eggKey = tool:GetAttribute("EggKey")
+            local pos = GetRandomPlotPosition()
+
+            if pos then
+                if eggKey then
+                    pcall(function()
+                        Remotes.Invoke("Egg_Place", eggKey, pos)
+                    end)
+                    task.wait(0.2)
+                elseif animalId then
+                    pcall(function()
+                        Remotes.Invoke("Plot_PlaceAnimal", animalId, pos)
+                    end)
+                    task.wait(0.2)
+                end
+            end
+        end
+    end
+
+    -- ================================================================
+    -- AUTO EQUIP BEST
+    -- ================================================================
+    local function ProcessEquipBest()
+        if not autoEquipBest or not Remotes then return end
+        pcall(function()
+            Remotes.Invoke("Plot_EquipBest")
+        end)
+    end
+
+    -- ================================================================
+    -- THROW MONITOR / RE-THROW LOOP
+    -- ================================================================
+    if ThrowController and ThrowController.Finished then
+        local conn = ThrowController.Finished:Connect(function(result)
+            lastThrowTime = os.clock()
+            isThrowing = false
+
+            -- Immediately run auto-place and equip best upon landing
+            task.delay(0.3, function()
+                ProcessPlacement()
+                if autoEquipBest then
+                    ProcessEquipBest()
+                end
+            end)
+        end)
+        table.insert(activeConnections, conn)
+    end
+
+    -- Main loop
+    task.spawn(function()
+        local tickCounter = 0
+        while not isDestroyed do
+            task.wait(0.5)
+            tickCounter = tickCounter + 1
+
+            -- Auto Place check every ~1s
+            if autoPlaceAnimals and tickCounter % 2 == 0 then
+                pcall(ProcessPlacement)
+            end
+
+            -- Auto Equip Best every ~4s
+            if autoEquipBest and tickCounter % 8 == 0 then
+                pcall(ProcessEquipBest)
+            end
+
+            -- Auto Loop Throw
+            if autoLoopThrow and not isThrowing and os.clock() - lastThrowTime >= rethrowDelay then
+                local character = LocalPlayer.Character
+                local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+                local isBusy = (ClientState and ClientState.Busy) ~= nil
+                local isTraining = LocalPlayer:GetAttribute("Training") == true
+
+                if hrp and humanoid and humanoid.Health > 0 and not isBusy and not isTraining then
+                    isThrowing = true
+
+                    -- Move to throw line
+                    hrp.CFrame = GetThrowLineCFrame()
+                    task.wait(0.3)
+
+                    -- Trigger throw
+                    if ThrowController and ThrowController.Start then
+                        pcall(function()
+                            ThrowController.Start()
+                        end)
+                    end
+
+                    -- Safety reset if throw didn't start in 5 seconds
+                    task.delay(5, function()
+                        if isThrowing and (not ClientState or ClientState.Busy ~= "Throw") then
+                            isThrowing = false
+                        end
+                    end)
+                end
+            end
+
+            -- Auto Train (when not throwing and enabled)
+            if autoTrain and not autoLoopThrow and not isThrowing and Remotes then
+                local isTraining = LocalPlayer:GetAttribute("Training") == true
+                if not isTraining then
+                    local plot = GetPlot()
+                    if plot and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(plot.Position + Vector3.new(-16, 2, -30.5))
+                        task.wait(0.3)
+                        pcall(function()
+                            Remotes.Invoke("Training_Start")
+                        end)
+                    end
+                else
+                    pcall(function()
+                        Remotes.Invoke("Training_TapBonus")
+                    end)
+                end
+            end
+        end
+    end)
+
+    -- ================================================================
+    -- UI SETUP
+    -- ================================================================
+    local farmTab = CreateTab("Food Farm", "rbxassetid://6031075938")
+
+    -- SECTION: THROW CONTROLS (Left Column)
+    local throwSection = CreateSection(farmTab.Left, "Throw Controls")
+
+    AddToggle(throwSection, "Auto Perfect Throw (100% Power)", autoPerfectThrow, function(enabled)
+        autoPerfectThrow = enabled
+        Notify("Perfect Throw", enabled and "Auto 100% PERFECT enabled" or "Disabled", 2)
+    end)
+
+    AddToggle(throwSection, "Fast Reveal / Skip Animation", fastReveal, function(enabled)
+        fastReveal = enabled
+        Notify("Fast Reveal", enabled and "Animal reveal animation bypassed" or "Disabled", 2)
+    end)
+
+    AddToggle(throwSection, "Auto Re-Throw (Infinite Loop)", autoLoopThrow, function(enabled)
+        autoLoopThrow = enabled
+        if enabled then
+            autoTrain = false
+        end
+        Notify("Auto Throw", enabled and "Continuous auto-throw loop started" or "Stopped", 2)
+    end)
+
+    AddSlider(throwSection, "Re-Throw Delay", 0.5, 5.0, rethrowDelay, function(val)
+        rethrowDelay = val
+    end)
+
+    AddButton(throwSection, "Manual Perfect Throw (Start Once)", function()
+        if ThrowController and ThrowController.Start then
+            local character = LocalPlayer.Character
+            local hrp = character and character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = GetThrowLineCFrame()
+                task.wait(0.2)
+            end
+            ThrowController.Start()
+            Notify("Throw Started", "Executing perfect throw...", 2)
+        end
+    end)
+
+    -- SECTION: ANIMAL & PLOT AUTOMATION (Right Column)
+    local placeSection = CreateSection(farmTab.Right, "Animals & Plot")
+
+    AddToggle(placeSection, "Auto Place Animals & Eggs", autoPlaceAnimals, function(enabled)
+        autoPlaceAnimals = enabled
+        if enabled then pcall(ProcessPlacement) end
+        Notify("Auto Place", enabled and "Placing unplaced animals/eggs on plot" or "Disabled", 2)
+    end)
+
+    AddToggle(placeSection, "Auto Equip Best Animals", autoEquipBest, function(enabled)
+        autoEquipBest = enabled
+        if enabled then pcall(ProcessEquipBest) end
+        Notify("Auto Equip Best", enabled and "Always placing highest income animals" or "Disabled", 2)
+    end)
+
+    AddButton(placeSection, "Equip Best Animals Now", function()
+        ProcessEquipBest()
+        Notify("Equip Best", "Equipped best available animals", 2)
+    end)
+
+    AddButton(placeSection, "Place Carried Animals Now", function()
+        ProcessPlacement()
+        Notify("Place Animals", "Placed carried animals/eggs", 2)
+    end)
+
+    -- SECTION: STATS & INFO (Right Column)
+    local statsSection = CreateSection(farmTab.Right, "Plot Status")
+    local plotRow = AddLabel(statsSection, "Your Plot:", Theme.TextWhite)
+    local animalsRow = AddLabel(statsSection, "Animals on Plot:", Theme.Accent)
+    local incomeRow = AddLabel(statsSection, "Income Rate:", Theme.TextWhite)
+
+    -- Live stat updates
+    task.spawn(function()
+        while not isDestroyed do
+            task.wait(1.5)
+            pcall(function()
+                local plotIndex = LocalPlayer:GetAttribute("PlotIndex")
+                if plotRow and plotRow:FindFirstChild("Value") then
+                    plotRow.Value.Text = plotIndex and ("Plot #" .. tostring(plotIndex)) or "None"
+                end
+
+                local plot = GetPlot()
+                local animalCount = 0
+                if plot and plot:FindFirstChild("Animals") then
+                    animalCount = #plot.Animals:GetChildren()
+                end
+                if animalsRow and animalsRow:FindFirstChild("Value") then
+                    animalsRow.Value.Text = tostring(animalCount) .. " Animals"
+                end
+
+                local income = LocalPlayer:GetAttribute("IncomeRate") or 0
+                if incomeRow and incomeRow:FindFirstChild("Value") then
+                    incomeRow.Value.Text = "$" .. tostring(income) .. "/s"
+                end
+            end)
+        end
+    end)
+
+    return true
+end
+
+return Game
+end)()
+
+local GameFood = (function()
+local Game = {}
+
+function Game.Configure(menu)
+    if game.PlaceId ~= GameConfigFood.PlaceId then
+        return false
+    end
+    return GameFeaturesFood.Configure(menu)
+end
+
+return Game
+end)()
+
 local menu = Window.new({Name = "MooN_HUB_Menu", Title = "MooN | HUB"})
 Dashboard.Configure(menu)
 Debug.Configure(menu)
@@ -3202,6 +3424,7 @@ Auth.Configure(menu, function()
         Game139.Configure(menu)
     elseif game.PlaceId == GameConfigWW2.PlaceId then
         GameWW2.Configure(menu)
+    elseif game.PlaceId == GameConfigFood.PlaceId then
+        GameFood.Configure(menu)
     end
 end)
-
