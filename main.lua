@@ -3297,20 +3297,61 @@ function Game.Configure(menu)
         end
     end)
     -- ================================================================
+    -- TRAINING BONUS AUTO CLAIM (2X Tap Bonus)
+    -- Both server remote listener and direct UI tap detection
+    -- ================================================================
+    local lastClaimedBonusId = nil
+    local function ClaimBonusById(bonusId)
+        if not bonusId or bonusId == lastClaimedBonusId then return end
+        lastClaimedBonusId = bonusId
+        task.spawn(function()
+            pcall(function()
+                if Remotes then
+                    Remotes.Invoke("Training_TapBonus", bonusId)
+                end
+            end)
+        end)
+    end
+
     pcall(function()
         if Remotes and Remotes.Event then
             local bonusEvent = Remotes.Event("Training_Bonus")
             if bonusEvent and bonusEvent.OnClientEvent then
-                local conn = bonusEvent.OnClientEvent:Connect(function(bonusData)
-                    if autoClaimBonus and bonusData and bonusData.Id then
-                        task.spawn(function()
-                            pcall(function()
-                                Remotes.Invoke("Training_TapBonus", bonusData.Id)
-                            end)
-                        end)
+                local conn = bonusEvent.OnClientEvent:Connect(function(bonusId, expiryTime)
+                    if autoClaimBonus and bonusId then
+                        local id = (typeof(bonusId) == "table" and bonusId.Id) or bonusId
+                        ClaimBonusById(id)
                     end
                 end)
                 table.insert(activeConnections, conn)
+            end
+        end
+    end)
+
+    -- Also monitor TrainingSequence GUI directly in case bonus button appears on screen
+    task.spawn(function()
+        while not isDestroyed do
+            task.wait(0.1)
+            if autoClaimBonus then
+                pcall(function()
+                    local tseq = PlayerGui:FindFirstChild("TrainingSequence")
+                    if tseq then
+                        local tapBtn = tseq:FindFirstChild("TapBonus", true)
+                        if tapBtn and tapBtn:IsA("GuiButton") and tapBtn.Visible and tapBtn.Parent then
+                            -- Trigger UI click simulation
+                            if typeof(firesignal) == "function" then
+                                pcall(function() firesignal(tapBtn.Activated) end)
+                            end
+                            -- Also trigger keypress if mapped
+                            local UserInputService = game:GetService("UserInputService")
+                            -- If tapBtn has an ID stored in attributes or upvalues
+                            local id = tapBtn:GetAttribute("Id") or tapBtn:GetAttribute("BonusId")
+                            if id then
+                                ClaimBonusById(id)
+                            end
+                        end
+                    end
+                end)
             end
         end
     end)
