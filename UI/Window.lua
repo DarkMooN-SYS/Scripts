@@ -39,13 +39,19 @@ function Window.new(options)
     gui.Name = name
     gui.ResetOnSpawn = false
     gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    gui.DisplayOrder = options.DisplayOrder or 20
+    gui.DisplayOrder = options.DisplayOrder or 999999
+    gui.IgnoreGuiInset = true
     gui.Parent = guiParent
 
     -- If placed in PlayerGui, prevent external scripts from disabling it during sequences
     connect(gui:GetPropertyChangedSignal("Enabled"), function()
         if not destroyed and not gui.Enabled then
             gui.Enabled = true
+        end
+    end)
+    connect(gui:GetPropertyChangedSignal("DisplayOrder"), function()
+        if not destroyed and gui.DisplayOrder < 999999 then
+            gui.DisplayOrder = 999999
         end
     end)
 

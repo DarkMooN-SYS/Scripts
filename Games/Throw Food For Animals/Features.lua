@@ -182,7 +182,11 @@ function Game.Configure(menu)
                 elseif not visible and not filter then
                     filter = { ["MooN_HUB_Menu"] = true }
                 end
-                return origSetVisible(visible, filter)
+                local res = origSetVisible(visible, filter)
+                if ScreenGui and ScreenGui.Parent and not ScreenGui.Enabled then
+                    ScreenGui.Enabled = true
+                end
+                return res
             end
 
             table.insert(cleanupCallbacks, function()
@@ -191,6 +195,22 @@ function Game.Configure(menu)
             end)
         end
     end)
+
+    -- Ensure ScreenGui and Main always stay visible and on top
+    if ScreenGui then
+        ScreenGui.DisplayOrder = 999999
+        local enforceConn = RunService.RenderStepped:Connect(function()
+            if not isDestroyed and ScreenGui.Parent then
+                if not ScreenGui.Enabled then
+                    ScreenGui.Enabled = true
+                end
+                if ScreenGui.DisplayOrder < 999999 then
+                    ScreenGui.DisplayOrder = 999999
+                end
+            end
+        end)
+        table.insert(activeConnections, enforceConn)
+    end
     -- ================================================================
     pcall(function()
         if Remotes and Remotes.Event then

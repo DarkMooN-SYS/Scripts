@@ -343,13 +343,19 @@ function Window.new(options)
     gui.Name = name
     gui.ResetOnSpawn = false
     gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    gui.DisplayOrder = options.DisplayOrder or 20
+    gui.DisplayOrder = options.DisplayOrder or 999999
+    gui.IgnoreGuiInset = true
     gui.Parent = guiParent
 
     -- If placed in PlayerGui, prevent external scripts from disabling it during sequences
     connect(gui:GetPropertyChangedSignal("Enabled"), function()
         if not destroyed and not gui.Enabled then
             gui.Enabled = true
+        end
+    end)
+    connect(gui:GetPropertyChangedSignal("DisplayOrder"), function()
+        if not destroyed and gui.DisplayOrder < 999999 then
+            gui.DisplayOrder = 999999
         end
     end)
 
@@ -3179,7 +3185,11 @@ function Game.Configure(menu)
                 elseif not visible and not filter then
                     filter = { ["MooN_HUB_Menu"] = true }
                 end
-                return origSetVisible(visible, filter)
+                local res = origSetVisible(visible, filter)
+                if ScreenGui and ScreenGui.Parent and not ScreenGui.Enabled then
+                    ScreenGui.Enabled = true
+                end
+                return res
             end
 
             table.insert(cleanupCallbacks, function()
@@ -3188,6 +3198,22 @@ function Game.Configure(menu)
             end)
         end
     end)
+
+    -- Ensure ScreenGui and Main always stay visible and on top
+    if ScreenGui then
+        ScreenGui.DisplayOrder = 999999
+        local enforceConn = RunService.RenderStepped:Connect(function()
+            if not isDestroyed and ScreenGui.Parent then
+                if not ScreenGui.Enabled then
+                    ScreenGui.Enabled = true
+                end
+                if ScreenGui.DisplayOrder < 999999 then
+                    ScreenGui.DisplayOrder = 999999
+                end
+            end
+        end)
+        table.insert(activeConnections, enforceConn)
+    end
     -- ================================================================
     pcall(function()
         if Remotes and Remotes.Event then
