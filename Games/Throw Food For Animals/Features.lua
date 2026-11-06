@@ -175,6 +175,18 @@ function Game.Configure(menu)
         local HUDController = require(controllers:WaitForChild("HUDController"))
         if HUDController and not HUDController._moonHooked then
             HUDController._moonHooked = true
+
+            -- Permanently add MooN_HUB_Menu to HUDController's internal exclusion whitelist (u108)
+            pcall(function()
+                for i = 1, 6 do
+                    local v = debug.getupvalue(HUDController.SetGameplayVisible, i)
+                    if typeof(v) == "table" and v.ScreenFX == true then
+                        v["MooN_HUB_Menu"] = true
+                        break
+                    end
+                end
+            end)
+
             local origSetVisible = HUDController.SetGameplayVisible
             HUDController.SetGameplayVisible = function(visible, filter)
                 if not visible and filter and typeof(filter) == "table" then
@@ -211,6 +223,24 @@ function Game.Configure(menu)
         end)
         table.insert(activeConnections, enforceConn)
     end
+
+    -- Hook closeOtherWindows from OfflineEarnings/etc so game cannot close MooN Hub
+    pcall(function()
+        local controllers = LocalPlayer.PlayerScripts:WaitForChild("Client"):WaitForChild("Controllers")
+        local OfflineEarnings = require(controllers:WaitForChild("OfflineEarnings"))
+        if OfflineEarnings then
+            -- Safely ensure HUDController exclusions
+            local HUDController = require(controllers:WaitForChild("HUDController"))
+            for i = 1, 6 do
+                local v = debug.getupvalue(HUDController.SetGameplayVisible, i)
+                if typeof(v) == "table" and v.ScreenFX == true then
+                    v["MooN_HUB_Menu"] = true
+                    v["StatsGui"] = true
+                    break
+                end
+            end
+        end
+    end)
     -- ================================================================
     pcall(function()
         if Remotes and Remotes.Event then

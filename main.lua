@@ -278,21 +278,65 @@ function Components.AddSlider(context, parent, text, minimum, maximum, default, 
 end
 
 function Components.AddButton(context, parent, text, callback)
+    local theme = context.Theme
     local button = Instance.new("TextButton")
     button.Name = "ActionButton"
     button.Size = UDim2.new(1, 0, 0, 32)
-    button.BackgroundColor3 = context.Theme.AccentSoft
+    button.BackgroundColor3 = theme.AccentSoft
     button.Font = Enum.Font.GothamMedium
     button.Text = text
-    button.TextColor3 = context.Theme.TextWhite
+    button.TextColor3 = theme.TextWhite
     button.TextSize = context.IsCompact and 10 or 11
+    button.AutoButtonColor = false
     button.Parent = parent
     Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
     local stroke = Instance.new("UIStroke", button)
-    stroke.Color = context.Theme.Border
+    stroke.Color = theme.Border
     stroke.Transparency = 0.15
+
+    local isHovered = false
+    local isPressed = false
+
+    local function updateVisual()
+        if isPressed then
+            context.Tween(button, 0.08, {BackgroundColor3 = theme.Accent})
+            context.Tween(stroke, 0.08, {Color = theme.Accent, Transparency = 0})
+        elseif isHovered then
+            context.Tween(button, 0.15, {BackgroundColor3 = Color3.fromRGB(56, 46, 92)})
+            context.Tween(stroke, 0.15, {Color = theme.Accent, Transparency = 0.3})
+        else
+            context.Tween(button, 0.15, {BackgroundColor3 = theme.AccentSoft})
+            context.Tween(stroke, 0.15, {Color = theme.Border, Transparency = 0.15})
+        end
+    end
+
+    context.Connect(button.MouseEnter, function()
+        isHovered = true
+        updateVisual()
+    end)
+    context.Connect(button.MouseLeave, function()
+        isHovered = false
+        isPressed = false
+        updateVisual()
+    end)
+    context.Connect(button.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            isPressed = true
+            updateVisual()
+        end
+    end)
+    context.Connect(button.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            if isPressed then
+                isPressed = false
+                updateVisual()
+            end
+        end
+    end)
+
     context.Connect(button.MouseButton1Click, function()
-        context.Tween(button, 0.1, {BackgroundColor3 = context.Theme.Accent})
         if callback then callback() end
     end)
     return button
@@ -487,8 +531,10 @@ function Window.new(options)
     Instance.new("UICorner", floating).CornerRadius = UDim.new(1, 0)
     Instance.new("UIStroke", floating).Color = Theme.Accent
 
+    local userToggledOff = false
     local function toggle()
         main.Visible = not main.Visible
+        userToggledOff = not main.Visible
         floating.Visible = floatingEnabled and not main.Visible
     end
     connect(hidden.MouseButton1Click, toggle)
@@ -518,6 +564,12 @@ function Window.new(options)
                 floatingDragging = false
                 if not floatMoved then toggle() end
             end
+        end
+    end)
+
+    connect(main:GetPropertyChangedSignal("Visible"), function()
+        if not destroyed and not userToggledOff and not main.Visible then
+            main.Visible = true
         end
     end)
 
@@ -3178,6 +3230,18 @@ function Game.Configure(menu)
         local HUDController = require(controllers:WaitForChild("HUDController"))
         if HUDController and not HUDController._moonHooked then
             HUDController._moonHooked = true
+
+            -- Permanently add MooN_HUB_Menu to HUDController's internal exclusion whitelist (u108)
+            pcall(function()
+                for i = 1, 6 do
+                    local v = debug.getupvalue(HUDController.SetGameplayVisible, i)
+                    if typeof(v) == "table" and v.ScreenFX == true then
+                        v["MooN_HUB_Menu"] = true
+                        break
+                    end
+                end
+            end)
+
             local origSetVisible = HUDController.SetGameplayVisible
             HUDController.SetGameplayVisible = function(visible, filter)
                 if not visible and filter and typeof(filter) == "table" then
@@ -3214,6 +3278,24 @@ function Game.Configure(menu)
         end)
         table.insert(activeConnections, enforceConn)
     end
+
+    -- Hook closeOtherWindows from OfflineEarnings/etc so game cannot close MooN Hub
+    pcall(function()
+        local controllers = LocalPlayer.PlayerScripts:WaitForChild("Client"):WaitForChild("Controllers")
+        local OfflineEarnings = require(controllers:WaitForChild("OfflineEarnings"))
+        if OfflineEarnings then
+            -- Safely ensure HUDController exclusions
+            local HUDController = require(controllers:WaitForChild("HUDController"))
+            for i = 1, 6 do
+                local v = debug.getupvalue(HUDController.SetGameplayVisible, i)
+                if typeof(v) == "table" and v.ScreenFX == true then
+                    v["MooN_HUB_Menu"] = true
+                    v["StatsGui"] = true
+                    break
+                end
+            end
+        end
+    end)
     -- ================================================================
     pcall(function()
         if Remotes and Remotes.Event then

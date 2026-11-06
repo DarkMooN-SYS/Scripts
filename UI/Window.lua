@@ -183,8 +183,10 @@ function Window.new(options)
     Instance.new("UICorner", floating).CornerRadius = UDim.new(1, 0)
     Instance.new("UIStroke", floating).Color = Theme.Accent
 
+    local userToggledOff = false
     local function toggle()
         main.Visible = not main.Visible
+        userToggledOff = not main.Visible
         floating.Visible = floatingEnabled and not main.Visible
     end
     connect(hidden.MouseButton1Click, toggle)
@@ -214,6 +216,12 @@ function Window.new(options)
                 floatingDragging = false
                 if not floatMoved then toggle() end
             end
+        end
+    end)
+
+    connect(main:GetPropertyChangedSignal("Visible"), function()
+        if not destroyed and not userToggledOff and not main.Visible then
+            main.Visible = true
         end
     end)
 

@@ -258,21 +258,65 @@ function Components.AddSlider(context, parent, text, minimum, maximum, default, 
 end
 
 function Components.AddButton(context, parent, text, callback)
+    local theme = context.Theme
     local button = Instance.new("TextButton")
     button.Name = "ActionButton"
     button.Size = UDim2.new(1, 0, 0, 32)
-    button.BackgroundColor3 = context.Theme.AccentSoft
+    button.BackgroundColor3 = theme.AccentSoft
     button.Font = Enum.Font.GothamMedium
     button.Text = text
-    button.TextColor3 = context.Theme.TextWhite
+    button.TextColor3 = theme.TextWhite
     button.TextSize = context.IsCompact and 10 or 11
+    button.AutoButtonColor = false
     button.Parent = parent
     Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
     local stroke = Instance.new("UIStroke", button)
-    stroke.Color = context.Theme.Border
+    stroke.Color = theme.Border
     stroke.Transparency = 0.15
+
+    local isHovered = false
+    local isPressed = false
+
+    local function updateVisual()
+        if isPressed then
+            context.Tween(button, 0.08, {BackgroundColor3 = theme.Accent})
+            context.Tween(stroke, 0.08, {Color = theme.Accent, Transparency = 0})
+        elseif isHovered then
+            context.Tween(button, 0.15, {BackgroundColor3 = Color3.fromRGB(56, 46, 92)})
+            context.Tween(stroke, 0.15, {Color = theme.Accent, Transparency = 0.3})
+        else
+            context.Tween(button, 0.15, {BackgroundColor3 = theme.AccentSoft})
+            context.Tween(stroke, 0.15, {Color = theme.Border, Transparency = 0.15})
+        end
+    end
+
+    context.Connect(button.MouseEnter, function()
+        isHovered = true
+        updateVisual()
+    end)
+    context.Connect(button.MouseLeave, function()
+        isHovered = false
+        isPressed = false
+        updateVisual()
+    end)
+    context.Connect(button.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            isPressed = true
+            updateVisual()
+        end
+    end)
+    context.Connect(button.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            if isPressed then
+                isPressed = false
+                updateVisual()
+            end
+        end
+    end)
+
     context.Connect(button.MouseButton1Click, function()
-        context.Tween(button, 0.1, {BackgroundColor3 = context.Theme.Accent})
         if callback then callback() end
     end)
     return button
